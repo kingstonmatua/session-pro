@@ -111,6 +111,10 @@ textarea {
   color: var(--white);
 }
 
+.button-primary:hover {
+  background: #047857;
+}
+
 .hero {
   padding: 72px 0;
   background: var(--white);
@@ -363,6 +367,12 @@ h1 {
   transform: translateY(-1px);
 }
 
+.service-card.selected {
+  border-color: var(--green);
+  background: #f0fdf9;
+  box-shadow: 0 14px 32px rgba(5, 150, 105, 0.12);
+}
+
 .service-card.package {
   border-left-color: var(--amber);
 }
@@ -451,6 +461,12 @@ h1 {
   font-weight: 700;
 }
 
+.hero-book-button {
+  width: fit-content;
+  margin-top: 28px;
+  padding-inline: 28px;
+}
+
 .booking-panel {
   position: sticky;
   top: 96px;
@@ -497,6 +513,28 @@ h1 {
 
 .summary-row strong {
   text-align: right;
+}
+
+.summary-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 18px 0 4px;
+}
+
+.summary-total span {
+  color: var(--ink);
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.summary-total strong {
+  color: var(--green);
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 28px;
 }
 
 .availability-card {
@@ -548,6 +586,72 @@ h1 {
   color: var(--ink-mid);
 }
 
+.calendar-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 18px;
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.calendar-head strong {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 18px;
+}
+
+.calendar-head span {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.date-cell,
+.time-slot {
+  min-height: 46px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 800;
+  cursor: default;
+}
+
+.date-cell.selected,
+.time-slot.selected {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--white);
+}
+
+.time-section {
+  margin-top: 18px;
+}
+
+.time-label {
+  margin-bottom: 10px;
+  color: var(--ink-mid);
+  font-weight: 800;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .setup-warning {
   margin-top: 20px;
   border: 1px solid var(--blue-light);
@@ -580,6 +684,11 @@ h1 {
 
   .service-grid {
     grid-template-columns: 1fr;
+  }
+
+  .date-grid,
+  .time-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .booking-panel {

@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, Clock, CreditCard, MapPin, Star } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, MapPin, Star } from "lucide-react";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { centsToDollars, formatAvailability, getProPageData } from "@/lib/profiles";
@@ -26,6 +26,9 @@ export default async function ProPage({ params }: PageProps) {
   const photoSrc = pro.profile_photo_path?.startsWith("/")
     ? pro.profile_photo_path
     : "/images/kenyon-matua-golf.jpeg";
+  const previewDates = ["20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"];
+  const previewTimes = ["8:00 AM", "9:15 AM", "10:30 AM", "11:45 AM", "1:00 PM", "2:15 PM", "3:30 PM", "4:45 PM"];
+  const primaryService = singles[0];
 
   return (
     <main>
@@ -76,11 +79,15 @@ export default async function ProPage({ params }: PageProps) {
                 <span>Availability</span>
               </div>
             </div>
+
+            <a className="button button-primary hero-book-button" href="#booking">
+              Book a session
+            </a>
           </div>
         </div>
       </section>
 
-      <section className="profile-content">
+      <section className="profile-content" id="booking">
         <div className="container booking-grid">
           <div>
             <section className="panel">
@@ -88,12 +95,12 @@ export default async function ProPage({ params }: PageProps) {
                 <span>01</span>
                 <div>
                   <h2>Choose a session</h2>
-                  <p>Select a single lesson or package. Booking flow is the next build slice.</p>
+                  <p>Select the lesson that fits your game. Packages are available for clients who want consistent progress.</p>
                 </div>
               </div>
               <div className="service-grid">
-                {singles.map((service) => (
-                  <article className="service-card" key={service.id}>
+                {singles.map((service, index) => (
+                  <article className={`service-card ${index === 0 ? "selected" : ""}`} key={service.id}>
                     <div className="service-topline">
                       <div>
                         <div className="service-name">{service.name}</div>
@@ -112,7 +119,7 @@ export default async function ProPage({ params }: PageProps) {
                 <span>02</span>
                 <div>
                   <h2>Packages</h2>
-                  <p>Prepaid sessions for clients ready to build consistency.</p>
+                  <p>Save when you book multiple lessons up front.</p>
                 </div>
               </div>
               <div className="service-grid">
@@ -138,15 +145,50 @@ export default async function ProPage({ params }: PageProps) {
                 })}
               </div>
             </section>
+
+            <section className="section panel">
+              <div className="section-heading">
+                <span>03</span>
+                <div>
+                  <h2>Select a date and time</h2>
+                  <p>Weekday lesson availability at Alpine Country Club.</p>
+                </div>
+              </div>
+
+              <div className="calendar-card">
+                <div className="calendar-head">
+                  <strong>May 2026</strong>
+                  <span>Mountain Time</span>
+                </div>
+                <div className="date-grid" aria-label="Available dates preview">
+                  {previewDates.map((date) => (
+                    <button className={date === "22" ? "date-cell selected" : "date-cell"} key={date} type="button">
+                      <span>{date}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="time-section">
+                <div className="time-label">Available times for Friday, May 22</div>
+                <div className="time-grid">
+                  {previewTimes.map((time, index) => (
+                    <button className={index === 2 ? "time-slot selected" : "time-slot"} key={time} type="button">
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
           </div>
 
           <aside className="booking-panel">
             <div className="booking-panel-header">
               <div>
-                <span>Booking preview</span>
-                <h2>Reserve a lesson</h2>
+                <span>Booking summary</span>
+                <h2>Reserve your lesson</h2>
               </div>
-              <CreditCard size={22} />
+              <CalendarDays size={22} />
             </div>
 
             <div className="summary-row">
@@ -154,18 +196,35 @@ export default async function ProPage({ params }: PageProps) {
               <strong>{pro.full_name}</strong>
             </div>
             <div className="summary-row">
+              <span>Session</span>
+              <strong>{primaryService?.name ?? "Beginner lesson"}</strong>
+            </div>
+            <div className="summary-row">
+              <span>Date</span>
+              <strong>Friday, May 22</strong>
+            </div>
+            <div className="summary-row">
+              <span>Time</span>
+              <strong>10:30 AM</strong>
+            </div>
+            <div className="summary-row">
               <span>Location</span>
               <strong>{pro.club_or_business}</strong>
             </div>
-            <div className="summary-row">
-              <span>Starting at</span>
-              <strong>{startingPrice ? centsToDollars(startingPrice) : "$80"}</strong>
+            <div className="summary-total">
+              <span>Total</span>
+              <strong>{primaryService ? centsToDollars(primaryService.price_cents) : "$80"}</strong>
             </div>
+
+            <button className="button button-primary booking-button" type="button">
+              Proceed to payment
+            </button>
+            <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>
 
             <div className="availability-card">
               <div className="availability-title">
                 <CalendarDays size={18} />
-                Available weekly
+                Weekly availability
               </div>
               <ul className="availability-list">
                 {availability.map((rule) => (
@@ -176,11 +235,6 @@ export default async function ProPage({ params }: PageProps) {
                 ))}
               </ul>
             </div>
-
-            <button className="button button-primary booking-button" type="button">
-              Booking engine coming next
-            </button>
-            <p className="fine-print">The next platform slice will turn this preview into real date, time, and payment selection.</p>
           </aside>
         </div>
       </section>
