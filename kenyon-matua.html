@@ -98,10 +98,9 @@
       background: #F3F4F6; aspect-ratio: 4/3; border-radius: 16px;
       display: flex; align-items: center; justify-content: center; overflow: hidden;
     }
-    /* Replace src with actual photo path when available */
-    .hero-photo-placeholder {
-      color: var(--ink-soft); font-size: 14px; font-weight: 500;
-      text-align: center; padding: 24px; line-height: 1.6;
+    .hero-photo {
+      width: 100%; height: 100%; object-fit: cover; object-position: center 42%;
+      display: block;
     }
     .hero-photo-meta { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
     .meta-pill {
@@ -407,8 +406,7 @@
         <!-- Left: Photo -->
         <div>
           <div class="hero-photo-wrap">
-            <!-- Replace src with actual photo path when available -->
-            <div class="hero-photo-placeholder">Kenyon's photo goes here</div>
+            <img class="hero-photo" src="images/kenyon-matua-golf.jpeg" alt="Kenyon Matua swinging a golf club on the course" />
           </div>
           <div class="hero-photo-meta">
             <div class="meta-pill">
