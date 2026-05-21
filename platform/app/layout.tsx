@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Instrument_Sans, Plus_Jakarta_Sans } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { TopbarNav } from "./TopbarNav";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -52,11 +53,7 @@ export default function RootLayout({
                   Session<span>Pro</span>
                 </span>
               </Link>
-              <nav className="nav-actions" aria-label="Platform navigation">
-                <Link className="button" href="/kenyonmatua">View demo</Link>
-                <Link className="button" href="/auth/login">Log in</Link>
-                <Link className="button button-primary" href="/auth/signup">Claim your page</Link>
-              </nav>
+              <TopbarNav />
             </div>
           </header>
           {children}
