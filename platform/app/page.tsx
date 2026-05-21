@@ -6,11 +6,10 @@ export default function Home() {
       <section className="hero">
         <div className="container hero-grid">
           <div>
-            <div className="eyebrow">Platform foundation</div>
+            <div className="eyebrow">For coaches &amp; instructors</div>
             <h1>Your expertise deserves a better front door.</h1>
             <p className="hero-copy">
-              This is the first dynamic SessionPro app shell. The static landing page is still safe, while this app becomes
-              the foundation for pro signup, dynamic booking pages, and Supabase-backed availability.
+              SessionPro gives you a professional booking page in minutes. Set your availability, services, and pricing — your clients handle the rest.
             </p>
             <div className="hero-actions">
               <Link className="button button-primary" href="/auth/signup">Claim your page</Link>
@@ -18,12 +17,16 @@ export default function Home() {
               <Link className="button" href="/auth/login">Log in</Link>
             </div>
           </div>
+
           <aside className="demo-card">
-            <h2>Next build targets</h2>
-            <p>Connect Supabase environment keys, replace fallback demo data, then build pro authentication and onboarding.</p>
-            <div className="setup-warning">
-              Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local` to read from your Supabase project.
-            </div>
+            <h2>Everything you need</h2>
+            <ul className="feature-list">
+              <li>A public booking page with your name and brand</li>
+              <li>Single sessions and multi-session packages</li>
+              <li>Clients book and pay online — no back-and-forth</li>
+              <li>Full control over your availability and pricing</li>
+              <li>Live in minutes, no design skills needed</li>
+            </ul>
           </aside>
         </div>
       </section>
