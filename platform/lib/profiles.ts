@@ -88,7 +88,8 @@ function getDemoFallback(slug: string): ProPageData | null {
       profile_photo_path: "/images/kenyon-matua-golf.jpeg",
       rating_average: 4.9,
       rating_count: 0,
-      status: "active"
+      status: "active",
+      stripe_connect_account_id: null
     },
     services: [
       makeService(proId, "Beginner lesson", "Beginner", "single", 1, 8000, null, 10),

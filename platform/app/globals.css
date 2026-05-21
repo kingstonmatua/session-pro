@@ -906,6 +906,7 @@ h1 {
 }
 
 .slug-preview strong { color: var(--green); }
+.slug-preview.slug-taken { border-color: #DC2626; background: #FEF2F2; }
 
 .day-checkboxes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 

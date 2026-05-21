@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ExternalLink, Calendar, Star, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { LogoutButton } from './LogoutButton';
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
@@ -34,8 +35,13 @@ export default async function DashboardPage() {
       <div className="dashboard-inner">
 
         <div className="dashboard-welcome">
-          <h1>Welcome back, {pro.full_name.split(' ')[0]}</h1>
-          <p>Your SessionPro page is {pro.status === 'active' ? 'live and accepting bookings.' : 'currently in draft mode.'}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1>Welcome back, {pro.full_name.split(' ')[0]}</h1>
+              <p>Your SessionPro page is {pro.status === 'active' ? 'live and accepting bookings.' : 'currently in draft mode.'}</p>
+            </div>
+            <LogoutButton />
+          </div>
         </div>
 
         {/* Profile URL */}
