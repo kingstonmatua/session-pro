@@ -110,3 +110,20 @@ The Next.js platform app was deployed to **Vercel** for the first time.
 - Auth flow is complete: signup → onboarding → dashboard → logout, forgot password → reset
 - Marketing site at sessionpro.io links to the live platform for login
 - Pricing section is live and accurate
+
+---
+
+## What's left before sending to a real pro
+
+### Blocking
+1. **Booking + payment flow** — "Proceed to payment" button does nothing. The calendar and service selection are not wired to each other or to a checkout. This is the core value prop and must work before a pro can get real value.
+2. **Stripe Connect** — Pros need to connect a bank account to receive payouts. The 10% platform fee needs to be deducted automatically at checkout and the remainder routed to the pro via Stripe Connect.
+3. **Email confirmations** — No emails are sent when a booking is made. Both the pro and the client need a confirmation.
+
+### Secondary
+4. **Booking summary is hardcoded** — Date, time, and service in the right panel don't update when a client makes selections.
+5. **No profile editing** — Once onboarded, a pro cannot update their bio, photo, pricing, or availability.
+6. **No booking management** — Pros cannot see or manage incoming bookings from the dashboard.
+
+### Option if not ready for live bookings
+A pro's profile page, onboarding, and dashboard all work end-to-end. The platform could be shown to a pro for buy-in with payments marked as "coming soon" — as long as expectations are set upfront.
