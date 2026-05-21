@@ -54,7 +54,8 @@ export default function RootLayout({
               </Link>
               <nav className="nav-actions" aria-label="Platform navigation">
                 <Link className="button" href="/kenyonmatua">View demo</Link>
-                <Link className="button button-primary" href="/signup">Claim your page</Link>
+                <Link className="button" href="/auth/login">Log in</Link>
+                <Link className="button button-primary" href="/auth/signup">Claim your page</Link>
               </nav>
             </div>
           </header>

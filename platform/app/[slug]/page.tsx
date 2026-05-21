@@ -24,9 +24,12 @@ export default async function ProPage({ params }: PageProps) {
   const startingPrice = singles.length
     ? Math.min(...singles.map((service) => service.price_cents))
     : 0;
-  const photoSrc = pro.profile_photo_path?.startsWith("/")
-    ? pro.profile_photo_path
-    : "/images/kenyon-matua-golf.jpeg";
+  const photoSrc = pro.profile_photo_path
+    ? pro.profile_photo_path.startsWith("/")
+      ? pro.profile_photo_path
+      : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pro-media/${pro.profile_photo_path}`
+    : null;
+  const initials = pro.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
   const primaryService = singles[0];
 
   return (
@@ -35,7 +38,11 @@ export default async function ProPage({ params }: PageProps) {
         <div className="container pro-hero-grid">
           <div>
             <div className="photo-shell">
-              <Image className="profile-photo" src={photoSrc} alt={`${pro.full_name} profile photo`} width={900} height={675} priority />
+              {photoSrc ? (
+                <Image className="profile-photo" src={photoSrc} alt={`${pro.full_name} profile photo`} width={900} height={675} priority />
+              ) : (
+                <div className="photo-initials">{initials}</div>
+              )}
             </div>
             <div className="quick-meta">
               <span><MapPin size={15} />{pro.location_city}, {pro.location_region}</span>
