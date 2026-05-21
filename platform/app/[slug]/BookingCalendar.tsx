@@ -16,7 +16,13 @@ function getBookedSlots(date: Date): string[] {
   return [ALL_SLOTS[seed % ALL_SLOTS.length], ALL_SLOTS[(seed + 3) % ALL_SLOTS.length]];
 }
 
-export function BookingCalendar() {
+type Props = {
+  proId: string;
+  onDateSelect: (date: Date | null) => void;
+  onTimeSelect: (time: string | null) => void;
+};
+
+export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
   const todayRef = new Date();
   todayRef.setHours(0, 0, 0, 0);
 
@@ -37,6 +43,7 @@ export function BookingCalendar() {
   function pickDate(date: Date) {
     setSelectedDate(date);
     setSelectedSlot(null);
+    onDateSelect(date);
   }
 
   // Build day cells — week starts Monday
@@ -121,7 +128,7 @@ export function BookingCalendar() {
                   type="button"
                   className={cls}
                   disabled={isBooked}
-                  onClick={() => !isBooked && setSelectedSlot(slot)}
+                  onClick={() => { if (!isBooked) { setSelectedSlot(slot); onTimeSelect(slot); } }}
                 >
                   {slot}
                 </button>

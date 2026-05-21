@@ -1,10 +1,27 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { ExternalLink, Calendar, Star, Settings } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Calendar, Star, Settings, Banknote, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoutButton } from './LogoutButton';
+import { ConnectStripeButton } from './ConnectStripeButton';
+import Stripe from 'stripe';
 
-export default async function DashboardPage() {
+async function getConnectStatus(accountId: string | null): Promise<'not_connected' | 'pending' | 'active'> {
+  if (!accountId || !process.env.STRIPE_SECRET_KEY) return 'not_connected';
+  try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const account = await stripe.accounts.retrieve(accountId);
+    return account.charges_enabled ? 'active' : 'pending';
+  } catch {
+    return 'pending';
+  }
+}
+
+type PageProps = {
+  searchParams: Promise<{ connect?: string }>;
+};
+
+export default async function DashboardPage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,15 +35,12 @@ export default async function DashboardPage() {
 
   if (!pro) redirect('/onboarding');
 
-  const { count: bookingCount } = await supabase
-    .from('bookings')
-    .select('*', { count: 'exact', head: true })
-    .eq('pro_id', pro.id);
-
-  const { count: reviewCount } = await supabase
-    .from('reviews')
-    .select('*', { count: 'exact', head: true })
-    .eq('pro_id', pro.id);
+  const [{ count: bookingCount }, { count: reviewCount }, connectStatus, { connect: connectParam }] = await Promise.all([
+    supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('pro_id', pro.id),
+    supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('pro_id', pro.id),
+    getConnectStatus(pro.stripe_connect_account_id),
+    searchParams,
+  ]);
 
   const profileUrl = `sessionpro.io/${pro.slug}`;
 
@@ -43,6 +57,20 @@ export default async function DashboardPage() {
             <LogoutButton />
           </div>
         </div>
+
+        {/* Connect success/pending banner */}
+        {connectParam === 'success' && (
+          <div className="dashboard-banner dashboard-banner--success">
+            <CheckCircle2 size={18} />
+            Stripe payouts connected — you&rsquo;re ready to receive payments.
+          </div>
+        )}
+        {connectParam === 'pending' && (
+          <div className="dashboard-banner dashboard-banner--warning">
+            <AlertCircle size={18} />
+            Stripe setup isn&rsquo;t complete yet. Finish your account to receive payouts.
+          </div>
+        )}
 
         {/* Profile URL */}
         <div className="dashboard-card" style={{ marginBottom: 16 }}>
@@ -61,9 +89,7 @@ export default async function DashboardPage() {
               >
                 View page
               </Link>
-              <span
-                className={`status-badge ${pro.status === 'active' ? 'status-active' : 'status-draft'}`}
-              >
+              <span className={`status-badge ${pro.status === 'active' ? 'status-active' : 'status-draft'}`}>
                 {pro.status === 'active' ? 'Live' : 'Draft'}
               </span>
             </div>
@@ -95,6 +121,40 @@ export default async function DashboardPage() {
               {pro.rating_average ? `${pro.rating_average} average rating` : 'No reviews yet'}
             </p>
           </div>
+        </div>
+
+        {/* Stripe Connect */}
+        <div className="dashboard-card" style={{ marginBottom: 16 }}>
+          <h3>Payouts</h3>
+          {connectStatus === 'active' && (
+            <div className="connect-status connect-status--active">
+              <CheckCircle2 size={18} />
+              <div>
+                <strong>Stripe connected</strong>
+                <p>You&rsquo;ll receive 90% of each booking automatically. Platform fee: 10%.</p>
+              </div>
+            </div>
+          )}
+          {connectStatus === 'pending' && (
+            <div className="connect-status connect-status--pending">
+              <AlertCircle size={18} />
+              <div>
+                <strong>Setup incomplete</strong>
+                <p>Finish your Stripe account to start receiving payouts.</p>
+              </div>
+              <ConnectStripeButton label="Complete setup" />
+            </div>
+          )}
+          {connectStatus === 'not_connected' && (
+            <div className="connect-status connect-status--none">
+              <Banknote size={18} />
+              <div>
+                <strong>Connect your bank account</strong>
+                <p>Set up Stripe to receive 90% of each booking directly to your bank. Takes about 2 minutes.</p>
+              </div>
+              <ConnectStripeButton label="Set up payouts" />
+            </div>
+          )}
         </div>
 
         {/* Quick actions */}
