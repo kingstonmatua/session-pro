@@ -9,7 +9,6 @@ export function TopbarNav() {
   const isProfilePage =
     pathname !== '/' &&
     !pathname.startsWith('/auth') &&
-    !pathname.startsWith('/dashboard') &&
     !pathname.startsWith('/onboarding');
 
   if (isProfilePage) return null;
