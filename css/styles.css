@@ -1380,20 +1380,13 @@ img.disc-card__img {
   gap: 16px;
 }
 
-.pricing__amount {
+.pricing__tagline {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 64px;
+  font-size: 36px;
   font-weight: 800;
   color: var(--ink);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.pricing__amount span {
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  letter-spacing: 0;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
 .pricing__desc {
