@@ -1,4 +1,5 @@
 import { CalendarDays, CheckCircle2, Clock, MapPin, Star } from "lucide-react";
+import { BookingCalendar } from "./BookingCalendar";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { centsToDollars, formatAvailability, getProPageData } from "@/lib/profiles";
@@ -26,8 +27,6 @@ export default async function ProPage({ params }: PageProps) {
   const photoSrc = pro.profile_photo_path?.startsWith("/")
     ? pro.profile_photo_path
     : "/images/kenyon-matua-golf.jpeg";
-  const previewDates = ["20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"];
-  const previewTimes = ["8:00 AM", "9:15 AM", "10:30 AM", "11:45 AM", "1:00 PM", "2:15 PM", "3:30 PM", "4:45 PM"];
   const primaryService = singles[0];
 
   return (
@@ -155,30 +154,7 @@ export default async function ProPage({ params }: PageProps) {
                 </div>
               </div>
 
-              <div className="calendar-card">
-                <div className="calendar-head">
-                  <strong>May 2026</strong>
-                  <span>Mountain Time</span>
-                </div>
-                <div className="date-grid" aria-label="Available dates preview">
-                  {previewDates.map((date) => (
-                    <button className={date === "22" ? "date-cell selected" : "date-cell"} key={date} type="button">
-                      <span>{date}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="time-section">
-                <div className="time-label">Available times for Friday, May 22</div>
-                <div className="time-grid">
-                  {previewTimes.map((time, index) => (
-                    <button className={index === 2 ? "time-slot selected" : "time-slot"} key={time} type="button">
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <BookingCalendar />
             </section>
           </div>
 

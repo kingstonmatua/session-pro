@@ -586,70 +586,163 @@ h1 {
   color: var(--ink-mid);
 }
 
-.calendar-card {
+/* ---- Calendar ---- */
+.cal-card {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
-  padding: 18px;
+  overflow: hidden;
 }
 
-.calendar-head {
+.cal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
 }
 
-.calendar-head strong {
+.cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.cal-nav-btn:hover { background: var(--bg); }
+
+.cal-month-label {
   font-family: var(--font-jakarta), sans-serif;
-  font-size: 18px;
-}
-
-.calendar-head span {
-  color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
+  color: var(--ink);
 }
 
-.date-grid {
+.cal-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.cal-dh {
+  text-align: center;
+  padding: 9px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  position: relative;
+  padding: 0;
+}
+
+.cal-empty { cursor: default; }
+
+.cal-disabled {
+  color: var(--border);
+  cursor: not-allowed;
+}
+
+.cal-selectable {
+  cursor: pointer;
+  color: var(--ink-mid);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.cal-selectable:hover {
+  background: var(--green-light);
+  color: var(--green);
+  border-radius: 6px;
+}
+
+.cal-today {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.cal-today::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 2px solid var(--green);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.cal-selected {
+  background: var(--green) !important;
+  color: var(--white) !important;
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.cal-selected::after { display: none; }
+
+/* ---- Time slots ---- */
+.slots-section { margin-top: 18px; }
+
+.slots-label {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.date-cell,
-.time-slot {
-  min-height: 46px;
+.slot-btn {
+  padding: 11px 10px;
   border: 1.5px solid var(--border);
   border-radius: 8px;
   background: var(--white);
   color: var(--ink);
-  font-weight: 800;
-  cursor: default;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  text-align: center;
 }
 
-.date-cell.selected,
-.time-slot.selected {
+.slot-btn:hover:not(:disabled) {
   border-color: var(--green);
-  background: var(--green);
-  color: var(--white);
+  color: var(--green);
 }
 
-.time-section {
-  margin-top: 18px;
+.slot-selected {
+  background: var(--green) !important;
+  border-color: var(--green) !important;
+  color: var(--white) !important;
 }
 
-.time-label {
-  margin-bottom: 10px;
-  color: var(--ink-mid);
-  font-weight: 800;
-}
-
-.time-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.slot-booked {
+  background: var(--bg) !important;
+  border-color: var(--border) !important;
+  color: var(--ink-soft) !important;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  opacity: 0.55;
 }
 
 .setup-warning {
@@ -684,11 +777,6 @@ h1 {
 
   .service-grid {
     grid-template-columns: 1fr;
-  }
-
-  .date-grid,
-  .time-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .booking-panel {

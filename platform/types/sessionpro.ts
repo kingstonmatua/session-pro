@@ -15,6 +15,7 @@ export type Pro = {
   rating_average: number | null;
   rating_count: number;
   status: "draft" | "active" | "paused" | "archived";
+  stripe_connect_account_id: string | null;
 };
 
 export type Service = {
