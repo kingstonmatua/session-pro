@@ -13,8 +13,9 @@ export default function Home() {
               the foundation for pro signup, dynamic booking pages, and Supabase-backed availability.
             </p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/kenyonmatua">View Kenyon demo</Link>
-              <a className="button" href="https://sessionpro.io">Current live site</a>
+              <Link className="button button-primary" href="/auth/signup">Claim your page</Link>
+              <Link className="button" href="/kenyonmatua">View demo</Link>
+              <Link className="button" href="/auth/login">Log in</Link>
             </div>
           </div>
           <aside className="demo-card">
