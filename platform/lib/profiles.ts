@@ -38,7 +38,7 @@ export async function getProPageData(slug: string): Promise<ProPageData | null> 
     .single<Pro>();
 
   if (proError || !pro) {
-    return null;
+    return getDemoFallback(slug);
   }
 
   const [{ data: services }, { data: availability }] = await Promise.all([
