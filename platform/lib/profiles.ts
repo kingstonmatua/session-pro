@@ -85,7 +85,7 @@ function getDemoFallback(slug: string): ProPageData | null {
       timezone: "America/Phoenix",
       session_mode: "in_person",
       years_experience: 12,
-      profile_photo_path: null,
+      profile_photo_path: "/images/marcus-reed.png",
       rating_average: 4.9,
       rating_count: 47,
       status: "active",
