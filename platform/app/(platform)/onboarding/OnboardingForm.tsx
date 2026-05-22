@@ -3,7 +3,22 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Cropper, { type Area } from 'react-easy-crop';
+
+async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+  const image = new Image();
+  image.src = imageSrc;
+  await new Promise(resolve => { image.onload = resolve; });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.92));
+}
 
 const DAYS = [
   { key: 'mon', label: 'Mon' },
@@ -35,6 +50,10 @@ export default function OnboardingForm() {
   const [bio, setBio] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   // Step 2 — Availability
   const [days, setDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri']);
@@ -79,8 +98,26 @@ export default function OnboardingForm() {
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  const onCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  async function applyCrop() {
+    if (!cropSrc || !croppedAreaPixels) return;
+    const blob = await getCroppedBlob(cropSrc, croppedAreaPixels);
+    const file = new File([blob], 'profile.jpg', { type: 'image/jpeg' });
     setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(URL.createObjectURL(blob));
+    setCropSrc(null);
+  }
+
+  function cancelCrop() {
+    setCropSrc(null);
   }
 
   function toggleDay(day: string) {
@@ -421,6 +458,42 @@ export default function OnboardingForm() {
         )}
 
       </div>
+      {cropSrc && (
+        <div className="crop-modal-overlay">
+          <div className="crop-modal">
+            <div className="crop-modal-header">Adjust your photo</div>
+            <div className="crop-area">
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={4 / 3}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="crop-controls">
+              <div className="crop-zoom-row">
+                <label>Zoom</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={e => setZoom(Number(e.target.value))}
+                />
+              </div>
+              <div className="crop-actions">
+                <button className="button" onClick={cancelCrop}>Cancel</button>
+                <button className="button button-primary" onClick={applyCrop}>Apply crop</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1287,3 +1287,69 @@ h1 {
 .booking-status-icon--cancel {
   color: #dc2626;
 }
+
+/* ── Crop modal ───────────────────────────────────────── */
+
+.crop-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.crop-modal {
+  background: var(--white);
+  border-radius: 14px;
+  width: min(520px, 100%);
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+}
+
+.crop-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.crop-area {
+  position: relative;
+  height: 320px;
+  background: #000;
+}
+
+.crop-controls {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crop-zoom-row label {
+  font-size: 13px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.crop-zoom-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--green);
+}
+
+.crop-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
