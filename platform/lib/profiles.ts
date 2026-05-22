@@ -65,7 +65,7 @@ export async function getProPageData(slug: string): Promise<ProPageData | null> 
 }
 
 function getDemoFallback(slug: string): ProPageData | null {
-  if (slug !== "kenyonmatua") {
+  if (slug !== "marcusreed") {
     return null;
   }
 
@@ -74,37 +74,37 @@ function getDemoFallback(slug: string): ProPageData | null {
   return {
     pro: {
       id: proId,
-      slug: "kenyonmatua",
-      full_name: "Kenyon Matua",
+      slug: "marcusreed",
+      full_name: "Marcus Reed",
       discipline: "Golf Instruction",
-      title: "Assistant Golf Professional",
-      club_or_business: "Alpine Country Club",
-      bio: "Kenyon Matua is an Assistant Golf Professional at Alpine Country Club in Highland, Utah, with five years of hands-on instruction experience across multiple clubs. Kenyon specializes in helping golfers of all skill levels build a more consistent, confident game — from fundamentals for beginners to course management and shot-shaping for advanced players.\n\nEvery session is tailored to where you are in your game. Whether you're picking up a club for the first time or looking to break 80, Kenyon brings patience, precision, and a genuine passion for the sport to every lesson.",
-      location_city: "Highland",
-      location_region: "UT",
-      timezone: "America/Denver",
+      title: "PGA Golf Professional",
+      club_or_business: "Scottsdale Golf Club",
+      bio: "Marcus Reed is a PGA Golf Professional at Scottsdale Golf Club in Scottsdale, Arizona, with over twelve years of teaching experience at some of the Southwest's top clubs. Marcus specializes in helping golfers at every level build a more consistent, repeatable swing — from first-timers learning the basics to single-digit handicappers chasing their personal best.\n\nEvery lesson is built around you. Marcus uses a combination of video analysis, on-course drills, and clear, jargon-free coaching to help you make real improvements that stick. Book a session below and start playing the golf you know you're capable of.",
+      location_city: "Scottsdale",
+      location_region: "AZ",
+      timezone: "America/Phoenix",
       session_mode: "in_person",
-      years_experience: 5,
-      profile_photo_path: "/images/kenyon-matua-golf.jpeg",
+      years_experience: 12,
+      profile_photo_path: null,
       rating_average: 4.9,
-      rating_count: 0,
+      rating_count: 47,
       status: "active",
       stripe_connect_account_id: null
     },
     services: [
-      makeService(proId, "Beginner lesson", "Beginner", "single", 1, 8000, null, 10),
-      makeService(proId, "Advanced lesson", "Advanced", "single", 1, 10000, null, 20),
-      makeService(proId, "5-Session Pack", "Beginner", "package", 5, 37500, 40000, 30),
-      makeService(proId, "5-Session Pack", "Advanced", "package", 5, 47500, 50000, 40),
-      makeService(proId, "10-Session Pack", "Beginner", "package", 10, 72500, 80000, 50),
-      makeService(proId, "10-Session Pack", "Advanced", "package", 10, 92500, 100000, 60)
+      makeService(proId, "Beginner lesson", "Beginner", "single", 1, 10000, null, 10),
+      makeService(proId, "Advanced lesson", "Advanced", "single", 1, 12000, null, 20),
+      makeService(proId, "5-Session Pack", "Beginner", "package", 5, 47500, 50000, 30),
+      makeService(proId, "5-Session Pack", "Advanced", "package", 5, 57500, 60000, 40),
+      makeService(proId, "10-Session Pack", "Beginner", "package", 10, 90000, 100000, 50),
+      makeService(proId, "10-Session Pack", "Advanced", "package", 10, 110000, 120000, 60)
     ],
-    availability: ["mon", "tue", "wed", "thu", "fri"].map((day, index) => ({
+    availability: ["mon", "tue", "wed", "thu", "fri", "sat"].map((day, index) => ({
       id: `availability-${index}`,
       pro_id: proId,
       day: day as AvailabilityRule["day"],
-      start_time: "08:00:00",
-      end_time: "18:00:00",
+      start_time: "07:00:00",
+      end_time: "17:00:00",
       is_active: true
     }))
   };

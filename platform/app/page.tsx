@@ -91,7 +91,7 @@ export default function LandingPage() {
 
               <div className="hero__ctas">
                 <Link href="/auth/signup" className="btn-primary">Claim your free page &rarr;</Link>
-                <Link href="/kenyonmatua" className="btn-ghost">View live demo</Link>
+                <Link href="/marcusreed" className="btn-ghost">View live demo</Link>
                 <a href="#how-it-works" className="btn-ghost">See how it works</a>
               </div>
 
