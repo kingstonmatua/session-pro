@@ -65,6 +65,7 @@ export default function LandingPage() {
           </div>
 
           <div className="nav__right">
+            <Link href="/marcusreed">View demo</Link>
             <Link href="/auth/login">Log in</Link>
             <Link href="/auth/signup" className="btn-primary">Claim your page</Link>
           </div>
