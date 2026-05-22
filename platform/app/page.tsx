@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarCheck, CreditCard, Bell, Star, Package, Link as LinkIcon } from 'lucide-react';
-import WaitlistForm from './WaitlistForm';
 
 function Logo() {
   return (
@@ -67,7 +66,7 @@ export default function LandingPage() {
 
           <div className="nav__right">
             <Link href="/auth/login">Log in</Link>
-            <a href="#waitlist" className="btn-primary">Claim your page</a>
+            <Link href="/auth/signup" className="btn-primary">Claim your page</Link>
           </div>
         </div>
       </nav>
@@ -91,7 +90,7 @@ export default function LandingPage() {
               <p className="hero__sub">Stop losing clients in the back-and-forth. SessionPro gives you a professional booking page &mdash; your own URL, your rates, your availability &mdash; so clients can book and pay in under two minutes.</p>
 
               <div className="hero__ctas">
-                <a href="#waitlist" className="btn-primary">Claim your free page &rarr;</a>
+                <Link href="/auth/signup" className="btn-primary">Claim your free page &rarr;</Link>
                 <Link href="/kenyonmatua" className="btn-ghost">View live demo</Link>
                 <a href="#how-it-works" className="btn-ghost">See how it works</a>
               </div>
@@ -313,7 +312,7 @@ export default function LandingPage() {
 
           <div className="disc__note">
             <span>Don&rsquo;t see your discipline? SessionPro works for any professional who teaches one session at a time.</span>
-            <a href="#waitlist">Join the waitlist &rarr;</a>
+            <Link href="/auth/signup">Create your free page &rarr;</Link>
           </div>
 
         </div>
@@ -508,7 +507,7 @@ export default function LandingPage() {
 
                 <span className="qr-card__url">sessionpro.io/marcusreed</span>
                 <span className="qr-card__sub">Scan to book a session with Marcus</span>
-                <a href="#waitlist" className="btn-dark">Download your QR code</a>
+                <Link href="/auth/signup" className="btn-dark">Claim your free page</Link>
               </div>
             </div>
 
@@ -583,7 +582,7 @@ export default function LandingPage() {
             <div className="pricing__left">
               <div className="pricing__tagline">Free to sign up.<br />We get paid when you do.</div>
               <p className="pricing__desc">No subscription. No setup fee. We take 10% when a session is booked &mdash; that&rsquo;s it. Create your page and start earning today.</p>
-              <a href="#waitlist" className="btn-primary">Claim your free page &rarr;</a>
+              <Link href="/auth/signup" className="btn-primary">Claim your free page &rarr;</Link>
             </div>
             <div className="pricing__divider" aria-hidden="true"></div>
             <ul className="pricing__features">
@@ -600,25 +599,32 @@ export default function LandingPage() {
       </section>
 
       {/* ============================
-           WAITLIST FORM
+           CTA SECTION
            ============================ */}
-      <section className="waitlist" id="waitlist" aria-labelledby="waitlist-heading">
+      <section className="waitlist" id="get-started" aria-labelledby="cta-heading">
         <div className="container">
           <div className="waitlist__inner">
 
             <div className="waitlist__header">
               <div className="pill">
                 <span className="pulse-dot" aria-hidden="true"></span>
-                Spots available now
+                Now accepting professionals
               </div>
-              <h2 id="waitlist-heading">Ready to fill your <span>calendar?</span></h2>
-              <p>Claim your SessionPro page in under 10 minutes. Free to join. We only earn when you do.</p>
+              <h2 id="cta-heading">Ready to fill your <span>calendar?</span></h2>
+              <p>Create your SessionPro page in under 10 minutes. Free to join. We only earn when you do.</p>
               <div className="waitlist__url-pill" aria-label="Your SessionPro URL preview">
                 sessionpro.io/<span>[yourname]</span>
               </div>
             </div>
 
-            <WaitlistForm />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <Link href="/auth/signup" className="btn-primary" style={{ fontSize: '1rem', padding: '14px 32px' }}>
+                Create your free page &rarr;
+              </Link>
+              <p style={{ fontSize: '13px', color: 'var(--ink-soft)', margin: 0 }}>
+                Already have an account? <Link href="/auth/login" style={{ color: 'var(--green)', fontWeight: 500 }}>Log in</Link>
+              </p>
+            </div>
 
           </div>
         </div>

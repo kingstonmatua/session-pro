@@ -1,5 +1,7 @@
--- Optional seed data for the first SessionPro demo profile.
--- Run after supabase/schema.sql if you want Kenyon available in the database.
+-- SUPERSEDED — do not re-run this file.
+-- Kenyon Matua now signs up as a real user through the platform auth flow.
+-- To clear the old demo row so the kenyonmatua slug is free, run delete-demo-seed.sql first.
+-- This file is kept for reference only.
 
 insert into public.pros (
   id,

@@ -79,7 +79,7 @@ function getDemoFallback(slug: string): ProPageData | null {
       discipline: "Golf Instruction",
       title: "Assistant Golf Professional",
       club_or_business: "Alpine Country Club",
-      bio: "Kenyon Matua is an Assistant Golf Professional at Alpine Country Club in Highland, Utah, with five years of hands-on instruction experience across multiple clubs. Kenyon specializes in helping golfers build a more consistent, confident game.",
+      bio: "Kenyon Matua is an Assistant Golf Professional at Alpine Country Club in Highland, Utah, with five years of hands-on instruction experience across multiple clubs. Kenyon specializes in helping golfers of all skill levels build a more consistent, confident game — from fundamentals for beginners to course management and shot-shaping for advanced players.\n\nEvery session is tailored to where you are in your game. Whether you're picking up a club for the first time or looking to break 80, Kenyon brings patience, precision, and a genuine passion for the sport to every lesson.",
       location_city: "Highland",
       location_region: "UT",
       timezone: "America/Denver",
