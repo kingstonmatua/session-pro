@@ -245,6 +245,79 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
   if (error) console.error('[email] cancellation failed:', error);
 }
 
+type ReviewRequestParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  bookingId: string;
+  scheduledAt?: string;
+};
+
+export async function sendReviewRequest(params: ReviewRequestParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const reviewUrl = `${appUrl}/review/${params.bookingId}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="background:#059669;padding:28px 32px;">
+            <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SessionPro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:800;">How was your session?</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              Hi ${params.clientName.split(' ')[0]}, we hope your ${params.serviceName} with <strong>${params.proName}</strong> went well! Your feedback helps other clients find great instructors.
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr><td align="center">
+                <a href="${reviewUrl}" style="display:inline-block;background:#059669;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+                  Leave a review
+                </a>
+              </td></tr>
+            </table>
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              Takes less than a minute. Your review will be visible on ${params.proName}&rsquo;s profile once approved.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const sendParams: Parameters<typeof resend.emails.send>[0] = {
+    from: FROM,
+    to: params.clientEmail,
+    subject: `How was your session with ${params.proName}?`,
+    html,
+  };
+  if (params.scheduledAt) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (sendParams as any).scheduledAt = params.scheduledAt;
+  }
+
+  const { error } = await resend.emails.send(sendParams);
+  if (error) console.error('[email] review request failed:', error);
+}
+
 function row(label: string, value: string) {
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">

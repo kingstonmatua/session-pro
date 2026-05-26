@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { AvailabilityRule, Pro, ProPageData, Service } from "@/types/sessionpro";
+import type { AvailabilityRule, Pro, ProPageData, Review, Service } from "@/types/sessionpro";
 
 export const DEMO_PRO_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -43,7 +43,7 @@ export async function getProPageData(slug: string): Promise<ProPageData | null> 
     return getDemoFallback(slug);
   }
 
-  const [{ data: services }, { data: availability }] = await Promise.all([
+  const [{ data: services }, { data: availability }, { data: reviews }] = await Promise.all([
     supabase
       .from("services")
       .select("*")
@@ -56,13 +56,22 @@ export async function getProPageData(slug: string): Promise<ProPageData | null> 
       .select("*")
       .eq("pro_id", pro.id)
       .eq("is_active", true)
-      .returns<AvailabilityRule[]>()
+      .returns<AvailabilityRule[]>(),
+    supabase
+      .from("reviews")
+      .select("id, rating, quote, reviewer_name, created_at")
+      .eq("pro_id", pro.id)
+      .eq("is_published", true)
+      .order("created_at", { ascending: false })
+      .limit(12)
+      .returns<Review[]>()
   ]);
 
   return {
     pro,
     services: services ?? [],
-    availability: availability ?? []
+    availability: availability ?? [],
+    reviews: reviews ?? [],
   };
 }
 
@@ -108,7 +117,15 @@ function getDemoFallback(slug: string): ProPageData | null {
       start_time: "07:00:00",
       end_time: "17:00:00",
       is_active: true
-    }))
+    })),
+    reviews: [
+      { id: "r1", rating: 5, quote: "Marcus completely transformed my swing in just three sessions. I'm hitting the ball more consistently than I ever have. Highly recommend.", reviewer_name: "James T.", created_at: "2025-03-15T00:00:00Z" },
+      { id: "r2", rating: 5, quote: "Patient, knowledgeable, and great at explaining the why behind every adjustment. Best golf investment I've made.", reviewer_name: "Sarah K.", created_at: "2025-03-02T00:00:00Z" },
+      { id: "r3", rating: 5, quote: "Dropped 6 strokes off my handicap after a 5-session pack. Marcus knows exactly how to diagnose your weaknesses.", reviewer_name: "David R.", created_at: "2025-02-18T00:00:00Z" },
+      { id: "r4", rating: 4, quote: "Great instructor who keeps things simple and practical. My short game has improved dramatically.", reviewer_name: "Michelle P.", created_at: "2025-02-05T00:00:00Z" },
+      { id: "r5", rating: 5, quote: "First time taking lessons and Marcus made me feel completely comfortable. Already booked another session.", reviewer_name: "Tom W.", created_at: "2025-01-22T00:00:00Z" },
+      { id: "r6", rating: 5, quote: "Worth every penny. Marcus is the real deal — clear, focused, and results-driven.", reviewer_name: "Linda M.", created_at: "2025-01-10T00:00:00Z" },
+    ],
   };
 }
 

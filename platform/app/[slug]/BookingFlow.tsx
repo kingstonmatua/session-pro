@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { BookingCalendar } from './BookingCalendar';
 import { centsToDollars, formatAvailability } from '@/lib/profiles';
@@ -44,6 +44,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
     if (!canCheckout) return;
 
     if (demoPaymentLink) {
+      setIsLoading(true);
       window.location.href = demoPaymentLink;
       return;
     }
@@ -82,7 +83,31 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
     }
   }
 
+  const mobileTimeLabel = selectedDate && selectedTime
+    ? `${DAYS_LONG[selectedDate.getDay()].slice(0, 3)} ${MONTHS_LONG[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()} · ${selectedTime}`
+    : selectedDate
+    ? `${DAYS_LONG[selectedDate.getDay()].slice(0, 3)} ${MONTHS_LONG[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()} — pick a time`
+    : 'Select a date & time';
+
   return (
+    <>
+    {canCheckout && (
+      <div className="mobile-checkout-bar">
+        <div className="mobile-checkout-bar-info">
+          <div className="mobile-checkout-bar-service">{selectedService!.name}</div>
+          <div className="mobile-checkout-bar-time">{mobileTimeLabel}</div>
+        </div>
+        <button
+          className="button button-primary"
+          type="button"
+          onClick={handleProceedToPayment}
+          disabled={isLoading}
+        >
+          {isLoading ? <Loader2 size={15} className="slots-spinner" /> : null}
+          {isLoading ? 'Redirecting…' : `Pay ${centsToDollars(selectedService!.price_cents)}`}
+        </button>
+      </div>
+    )}
     <div className="container booking-grid">
       <div>
         <section className="panel">
@@ -215,7 +240,10 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
           onClick={handleProceedToPayment}
           disabled={!canCheckout || isLoading}
         >
-          {isLoading ? 'Redirecting…' : 'Proceed to payment'}
+          {isLoading
+            ? <><Loader2 size={16} className="slots-spinner" /> Redirecting to payment…</>
+            : 'Proceed to payment'
+          }
         </button>
         <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>
 
@@ -235,5 +263,6 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
         </div>
       </aside>
     </div>
+    </>
   );
 }

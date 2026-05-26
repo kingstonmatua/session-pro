@@ -44,9 +44,18 @@ export type AvailabilityRule = {
   is_active: boolean;
 };
 
+export type Review = {
+  id: string;
+  rating: number;
+  quote: string | null;
+  reviewer_name: string | null;
+  created_at: string;
+};
+
 export type ProPageData = {
   pro: Pro;
   services: Service[];
   availability: AvailabilityRule[];
+  reviews: Review[];
 };
 

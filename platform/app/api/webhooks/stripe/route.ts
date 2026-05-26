@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendClientConfirmation, sendProNotification } from '@/lib/email';
+import { sendClientConfirmation, sendProNotification, sendReviewRequest } from '@/lib/email';
 
 export async function POST(req: Request) {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -146,6 +146,15 @@ export async function POST(req: Request) {
       startsAt: hold.starts_at,
       timezone: pro.timezone,
       payoutCents: proPayoutCents,
+    }) : Promise.resolve(),
+    // Schedule review request 24h after the session ends
+    customerEmail ? sendReviewRequest({
+      clientEmail: customerEmail,
+      clientName: customerName,
+      proName: pro.full_name,
+      serviceName: service.name,
+      bookingId: booking.id,
+      scheduledAt: new Date(new Date(hold.ends_at).getTime() + 24 * 60 * 60 * 1000).toISOString(),
     }) : Promise.resolve(),
   ]);
 

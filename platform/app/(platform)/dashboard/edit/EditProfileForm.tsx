@@ -1,7 +1,7 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
@@ -40,6 +40,7 @@ type Pro = {
   bio: string | null;
   years_experience: number | null;
   profile_photo_path: string | null;
+  session_mode: 'in_person' | 'online' | 'hybrid';
 };
 
 type Props = {
@@ -63,6 +64,7 @@ export function EditProfileForm({ pro, availability, services }: Props) {
   const [region, setRegion] = useState(pro.location_region ?? '');
   const [bio, setBio] = useState(pro.bio ?? '');
   const [yearsExp, setYearsExp] = useState(pro.years_experience != null ? String(pro.years_experience) : '');
+  const [sessionMode, setSessionMode] = useState(pro.session_mode);
 
   const existingPhotoUrl = pro.profile_photo_path
     ? pro.profile_photo_path.startsWith('/')
@@ -90,14 +92,14 @@ export function EditProfileForm({ pro, availability, services }: Props) {
   const [availError, setAvailError] = useState('');
 
   // ── Pricing fields ──────────────────────────────────────────────
-  const beginnerService = services.find(s => s.sort_order === 10);
-  const advancedService = services.find(s => s.sort_order === 20);
-  const [beginnerPrice, setBeginnerPrice] = useState(
-    beginnerService ? String(beginnerService.price_cents / 100) : ''
+  type LessonType = { name: string; price: string };
+  const singles = services.filter(s => s.kind === 'single').sort((a, b) => a.sort_order - b.sort_order);
+  const [lessonTypes, setLessonTypes] = useState<LessonType[]>(
+    singles.length > 0
+      ? singles.map(s => ({ name: s.level ?? s.name, price: String(s.price_cents / 100) }))
+      : [{ name: 'Beginner', price: '' }, { name: 'Advanced', price: '' }]
   );
-  const [advancedPrice, setAdvancedPrice] = useState(
-    advancedService ? String(advancedService.price_cents / 100) : ''
-  );
+  const [duration, setDuration] = useState(String(services[0]?.duration_minutes ?? 60));
 
   const [priceSaving, setPriceSaving] = useState(false);
   const [priceSaved, setPriceSaved] = useState(false);
@@ -146,6 +148,7 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       location_region: region.trim(),
       bio: bio.trim() || null,
       years_experience: yearsExp ? parseInt(yearsExp, 10) : null,
+      session_mode: sessionMode,
     };
 
     if (photoFile) {
@@ -213,48 +216,52 @@ export function EditProfileForm({ pro, availability, services }: Props) {
   // ── Save: pricing ───────────────────────────────────────────────
   async function savePricing() {
     setPriceError('');
-    const bPrice = parseInt(beginnerPrice, 10);
-    const aPrice = parseInt(advancedPrice, 10);
-    if (isNaN(bPrice) || isNaN(aPrice) || bPrice <= 0 || aPrice <= 0) {
-      setPriceError('Enter valid prices for both session types.');
+    const durationMins = parseInt(duration, 10);
+
+    for (const lt of lessonTypes) {
+      if (!lt.name.trim()) { setPriceError('All lesson types need a name.'); return; }
+      const p = parseInt(lt.price, 10);
+      if (isNaN(p) || p <= 0) { setPriceError(`Enter a valid price for "${lt.name}".`); return; }
+    }
+    if (isNaN(durationMins) || durationMins < 15 || durationMins > 480) {
+      setPriceError('Session duration must be between 15 and 480 minutes.');
       return;
     }
     setPriceSaving(true);
 
-    const bCents = bPrice * 100;
-    const aCents = aPrice * 100;
+    // Deactivate all existing services — historical booking records keep their UUID refs intact
+    const { error: deactivateError } = await supabase
+      .from('services')
+      .update({ is_active: false })
+      .eq('pro_id', pro.id);
 
-    const serviceUpdates = [
-      { sort_order: 10, price_cents: bCents,           compare_at_price_cents: null },
-      { sort_order: 20, price_cents: aCents,           compare_at_price_cents: null },
-      { sort_order: 30, price_cents: bCents * 5 - 2500, compare_at_price_cents: bCents * 5 },
-      { sort_order: 40, price_cents: aCents * 5 - 2500, compare_at_price_cents: aCents * 5 },
-      { sort_order: 50, price_cents: bCents * 10 - 7500, compare_at_price_cents: bCents * 10 },
-      { sort_order: 60, price_cents: aCents * 10 - 7500, compare_at_price_cents: aCents * 10 },
-    ];
+    if (deactivateError) {
+      setPriceError(deactivateError.message);
+      setPriceSaving(false);
+      return;
+    }
 
-    const results = await Promise.all(
-      serviceUpdates.map(({ sort_order, price_cents, compare_at_price_cents }) =>
-        supabase
-          .from('services')
-          .update({ price_cents, compare_at_price_cents })
-          .eq('pro_id', pro.id)
-          .eq('sort_order', sort_order)
-      )
-    );
+    // Insert fresh services for each lesson type
+    const rows = lessonTypes.flatMap((lt, i) => {
+      const priceCents = parseInt(lt.price, 10) * 100;
+      const sortBase = (i + 1) * 10;
+      const name = lt.name.trim();
+      return [
+        { pro_id: pro.id, kind: 'single',  name, level: name, session_count: 1,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents,              compare_at_price_cents: null,          currency: 'usd', is_active: true, sort_order: sortBase },
+        { pro_id: pro.id, kind: 'package', name: '5-Session Pack',  level: name, session_count: 5,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 5  - 2500, compare_at_price_cents: priceCents * 5,  currency: 'usd', is_active: true, sort_order: sortBase + 100 },
+        { pro_id: pro.id, kind: 'package', name: '10-Session Pack', level: name, session_count: 10, duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 10 - 7500, compare_at_price_cents: priceCents * 10, currency: 'usd', is_active: true, sort_order: sortBase + 200 },
+      ];
+    });
 
-    const firstError = results.find(r => r.error)?.error;
-    if (firstError) {
-      setPriceError(firstError.message);
+    const { error: insertError } = await supabase.from('services').insert(rows);
+    if (insertError) {
+      setPriceError(insertError.message);
     } else {
       setPriceSaved(true);
       setTimeout(() => setPriceSaved(false), 3000);
     }
     setPriceSaving(false);
   }
-
-  const bNum = parseInt(beginnerPrice || '0');
-  const aNum = parseInt(advancedPrice || '0');
 
   return (
     <>
@@ -306,6 +313,24 @@ export function EditProfileForm({ pro, availability, services }: Props) {
           <div className="form-field">
             <label className="form-label" htmlFor="ep-years">Years of experience</label>
             <input id="ep-years" type="number" min="0" max="60" className="form-input" value={yearsExp} onChange={e => setYearsExp(e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Session format</label>
+            <div className="session-mode-group">
+              {(['in_person', 'online', 'hybrid'] as const).map(mode => (
+                <label key={mode} className={`session-mode-option ${sessionMode === mode ? 'session-mode-option--active' : ''}`}>
+                  <input
+                    type="radio"
+                    name="session_mode"
+                    value={mode}
+                    checked={sessionMode === mode}
+                    onChange={() => setSessionMode(mode)}
+                    style={{ display: 'none' }}
+                  />
+                  {mode === 'in_person' ? 'In person' : mode === 'online' ? 'Online' : 'Both'}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -404,31 +429,74 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       <div className="dashboard-card">
         <h3>Pricing</h3>
         <p style={{ fontSize: 14, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 20 }}>
-          Package prices are recalculated automatically when you save.
+          5-session and 10-session packs are calculated automatically from the single lesson price.
         </p>
 
-        <div className="form-grid-2">
-          <div className="form-field">
-            <label className="form-label" htmlFor="ep-beginner">Beginner lesson</label>
-            <div className="price-input-wrap">
-              <span className="price-prefix">$</span>
-              <input id="ep-beginner" type="number" className="form-input" min="1" value={beginnerPrice} onChange={e => setBeginnerPrice(e.target.value)} />
-            </div>
+        <div className="form-field">
+          <div className="lesson-types-header">
+            <label className="form-label" style={{ margin: 0 }}>Lesson types</label>
+            <span className="form-label" style={{ margin: 0, color: 'var(--ink-soft)', fontWeight: 400 }}>Price per session</span>
           </div>
+          <div className="lesson-types-list">
+            {lessonTypes.map((lt, i) => (
+              <div key={i} className="lesson-type-row">
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Beginner, Intermediate…"
+                  value={lt.name}
+                  onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, name: e.target.value } : t))}
+                />
+                <div className="price-input-wrap lesson-type-price">
+                  <span className="price-prefix">$</span>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min="1"
+                    placeholder="0"
+                    value={lt.price}
+                    onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="lesson-type-remove"
+                  onClick={() => setLessonTypes(prev => prev.filter((_, j) => j !== i))}
+                  disabled={lessonTypes.length === 1}
+                  aria-label="Remove"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {lessonTypes.length < 4 && (
+            <button
+              type="button"
+              className="button"
+              style={{ marginTop: 10, fontSize: 13, minHeight: 36, padding: '0 14px' }}
+              onClick={() => setLessonTypes(prev => [...prev, { name: '', price: '' }])}
+            >
+              <Plus size={14} /> Add lesson type
+            </button>
+          )}
+        </div>
+
+        <div className="form-grid-2" style={{ marginTop: 8 }}>
           <div className="form-field">
-            <label className="form-label" htmlFor="ep-advanced">Advanced lesson</label>
-            <div className="price-input-wrap">
-              <span className="price-prefix">$</span>
-              <input id="ep-advanced" type="number" className="form-input" min="1" value={advancedPrice} onChange={e => setAdvancedPrice(e.target.value)} />
-            </div>
+            <label className="form-label" htmlFor="ep-duration">Session duration (minutes)</label>
+            <input id="ep-duration" type="number" min="15" max="480" step="15" className="form-input" value={duration} onChange={e => setDuration(e.target.value)} />
           </div>
         </div>
 
-        {bNum > 0 && aNum > 0 && (
-          <div className="slug-preview" style={{ lineHeight: 1.9 }}>
-            <strong>Packages updated on save:</strong><br />
-            5-Session Pack: ${bNum * 5 - 25} Beginner · ${aNum * 5 - 25} Advanced (save $25)<br />
-            10-Session Pack: ${bNum * 10 - 75} Beginner · ${aNum * 10 - 75} Advanced (save $75)
+        {lessonTypes.some(lt => parseInt(lt.price) > 0 && lt.name) && (
+          <div className="slug-preview" style={{ lineHeight: 2, marginTop: 16 }}>
+            <strong>Packages on save:</strong>
+            {lessonTypes.map((lt, i) => {
+              const p = parseInt(lt.price || '0');
+              if (!p || !lt.name.trim()) return null;
+              return <div key={i}>{lt.name}: 5-pack ${p * 5 - 25} · 10-pack ${p * 10 - 75} (save $25 / $75)</div>;
+            })}
           </div>
         )}
 

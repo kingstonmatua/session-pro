@@ -288,6 +288,97 @@ h1 {
   padding: 32px 0 72px;
 }
 
+/* ── Profile reviews section ─────────────────────────── */
+.profile-reviews {
+  padding: 56px 0;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-reviews-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.profile-reviews-header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.profile-reviews-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-mid);
+}
+
+.profile-reviews-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.review-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-card-quote-icon {
+  color: var(--green);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.review-card-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.review-card-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-mid);
+  flex: 1;
+}
+
+.review-card-author {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 900px) {
+  .reviews-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .reviews-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .booking-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -750,6 +841,15 @@ h1 {
 .cal-selected::after { display: none; }
 
 /* ---- Time slots ---- */
+.cal-timezone-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
 .slots-section { margin-top: 18px; }
 
 .slots-label {
@@ -1111,6 +1211,87 @@ h1 {
 }
 .price-input-wrap .form-input { padding-left: 26px; }
 
+.lesson-types-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.lesson-types-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-type-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lesson-type-row .form-input {
+  flex: 1;
+}
+
+.lesson-type-price {
+  flex: 0 0 110px !important;
+}
+
+.lesson-type-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.lesson-type-remove:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.lesson-type-remove:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.session-mode-group {
+  display: flex;
+  gap: 8px;
+}
+
+.session-mode-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.session-mode-option--active {
+  border-color: var(--green);
+  background: var(--green-light);
+  color: var(--green);
+}
+
 /* ---- Dashboard ---- */
 .dashboard-shell {
   background: var(--bg);
@@ -1316,7 +1497,243 @@ h1 {
   }
 
   .hero-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .hero-book-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .pro-hero {
+    padding: 32px 0 40px;
+  }
+
+  .booking-panel {
+    order: -1;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cal-day {
+    font-size: 12px;
+  }
+
+  .slot-btn {
+    padding: 13px 8px;
+    font-size: 13px;
+  }
+}
+
+/* Mobile sticky checkout bar */
+.mobile-checkout-bar {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .mobile-checkout-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--white);
+    border-top: 1px solid var(--border);
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    z-index: 100;
+    box-shadow: 0 -4px 20px rgba(17, 24, 39, 0.08);
+  }
+
+  .mobile-checkout-bar-info {
+    min-width: 0;
+  }
+
+  .mobile-checkout-bar-service {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-checkout-bar-time {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-checkout-bar .button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Add bottom padding so content isn't hidden behind the sticky bar */
+  .profile-content {
+    padding-bottom: 120px;
+  }
+}
+
+/* ── Review page ─────────────────────────────────────── */
+.review-page {
+  min-height: 80vh;
+  padding: 56px 24px 80px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.review-card-wrap {
+  width: 100%;
+  max-width: 520px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 8px 32px rgba(17, 24, 39, 0.06);
+}
+
+.review-pro-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-pro-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.review-pro-avatar--initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--green-light);
+  color: var(--green);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.review-pro-discipline {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--green);
+}
+
+.review-pro-name {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.review-session-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.review-form-heading {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.review-star-picker {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.review-star-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  transition: transform 0.1s;
+  line-height: 0;
+}
+
+.review-star-btn:hover {
+  transform: scale(1.15);
+}
+
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.review-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.review-success-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.review-success h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.review-success p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  max-width: 340px;
+}
+
+.review-already-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 24px 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  .review-card-wrap {
+    padding: 24px 18px;
+  }
+
+  .review-page {
+    padding: 32px 16px 60px;
+    align-items: flex-start;
   }
 }
 
@@ -1436,6 +1853,70 @@ h1 {
 
 .booking-status-icon--cancel {
   color: #dc2626;
+}
+
+.booking-status-card--detailed {
+  max-width: 520px;
+}
+
+.booking-confirm-details {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: left;
+}
+
+.booking-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.booking-confirm-row:last-child {
+  border-bottom: none;
+}
+
+.booking-confirm-row-icon {
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.booking-confirm-row-label {
+  color: var(--ink-soft);
+  width: 72px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.booking-confirm-row-value {
+  color: var(--ink);
+  font-weight: 500;
+  flex: 1;
+}
+
+.booking-confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.booking-confirm-back-link {
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  text-align: center;
+  padding: 6px 0;
+  transition: color 0.15s;
+}
+
+.booking-confirm-back-link:hover {
+  color: var(--ink);
 }
 
 /* ── Crop modal ───────────────────────────────────────── */

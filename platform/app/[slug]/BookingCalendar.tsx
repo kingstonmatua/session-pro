@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Globe, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const MONTHS = [
@@ -10,6 +10,15 @@ const MONTHS = [
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const ALL_SLOTS = ['8:00 AM','9:15 AM','10:30 AM','11:45 AM','1:00 PM','2:15 PM','3:30 PM','4:45 PM'];
+
+function formatTimezone(tz: string): string {
+  const now = new Date();
+  const long = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'long' })
+    .formatToParts(now).find(p => p.type === 'timeZoneName')?.value ?? tz;
+  const short = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
+    .formatToParts(now).find(p => p.type === 'timeZoneName')?.value ?? '';
+  return short && short !== long ? `${long} (${short})` : long;
+}
 
 function calDateKey(date: Date): string {
   return [
@@ -152,6 +161,11 @@ export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }:
           {emptyCells}
           {dayCells}
         </div>
+      </div>
+
+      <div className="cal-timezone-note">
+        <Globe size={13} />
+        Times shown in {formatTimezone(timezone)}
       </div>
 
       {selectedDate && (
