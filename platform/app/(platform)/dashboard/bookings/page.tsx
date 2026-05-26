@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
@@ -128,6 +128,14 @@ export default async function BookingsPage() {
                       </div>
                       <div className="booking-cell-actions">
                         <span className="status-badge status-confirmed">Confirmed</span>
+                        <a
+                          href={`/api/bookings/${booking.id}/ical`}
+                          className="button"
+                          style={{ fontSize: 13, minHeight: 32, padding: '0 12px' }}
+                          title="Add to calendar"
+                        >
+                          <CalendarArrowDown size={14} />
+                        </a>
                         <CancelButton
                           bookingId={booking.id}
                           clientName={booking.clients?.full_name ?? 'Client'}
@@ -179,7 +187,17 @@ export default async function BookingsPage() {
                       <div className="booking-cell">
                         <strong>{dollars(booking.pro_payout_cents)}</strong>
                       </div>
-                      <span className="status-badge status-past">Completed</span>
+                      <div className="booking-cell-actions">
+                        <span className="status-badge status-past">Completed</span>
+                        <a
+                          href={`/api/bookings/${booking.id}/ical`}
+                          className="button"
+                          style={{ fontSize: 13, minHeight: 32, padding: '0 12px' }}
+                          title="Add to calendar"
+                        >
+                          <CalendarArrowDown size={14} />
+                        </a>
+                      </div>
                     </div>
                   );
                 })}
