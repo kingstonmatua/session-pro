@@ -212,7 +212,9 @@ export default function OnboardingForm() {
         .from('pro-media')
         .upload(storagePath, photoFile, { upsert: true });
 
-      if (!uploadError) {
+      if (uploadError) {
+        console.error('[onboarding] photo upload failed:', uploadError.message);
+      } else {
         await supabase.from('pros').update({ profile_photo_path: storagePath }).eq('id', proId);
       }
     }

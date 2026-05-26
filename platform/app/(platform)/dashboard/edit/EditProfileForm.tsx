@@ -153,7 +153,12 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       const { error: uploadError } = await supabase.storage
         .from('pro-media')
         .upload(storagePath, photoFile, { upsert: true });
-      if (!uploadError) updates.profile_photo_path = storagePath;
+      if (uploadError) {
+        setProfileError('Photo upload failed: ' + uploadError.message);
+        setProfileSaving(false);
+        return;
+      }
+      updates.profile_photo_path = storagePath;
     }
 
     const { error } = await supabase.from('pros').update(updates).eq('id', pro.id);
