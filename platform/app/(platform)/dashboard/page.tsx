@@ -136,13 +136,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 <strong>Stripe connected</strong>
                 <p>You&rsquo;ll receive 90% of each booking automatically. Platform fee: 10%.</p>
               </div>
-              <a
+              <Link
                 href="/api/stripe/express-link"
                 className="button"
                 style={{ fontSize: 14, minHeight: 38, padding: '0 14px', whiteSpace: 'nowrap' }}
               >
                 <ExternalLink size={14} /> View payouts
-              </a>
+              </Link>
             </div>
           )}
           {connectStatus === 'pending' && (
