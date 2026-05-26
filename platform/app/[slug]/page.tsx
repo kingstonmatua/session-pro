@@ -1,8 +1,9 @@
 import { CheckCircle2, Clock, MapPin, Star } from "lucide-react";
 import { BookingFlow } from "./BookingFlow";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { centsToDollars, getProPageData } from "@/lib/profiles";
+import { centsToDollars, getProPageData, DEMO_PRO_ID } from "@/lib/profiles";
 
 type PageProps = {
   params: Promise<{
@@ -19,6 +20,9 @@ export default async function ProPage({ params }: PageProps) {
   }
 
   const { pro, services, availability } = data;
+  const demoPaymentLink = pro.id === DEMO_PRO_ID
+    ? process.env.NEXT_PUBLIC_STRIPE_DEMO_PAYMENT_LINK
+    : undefined;
   const singles = services.filter((service) => service.kind === "single");
   const startingPrice = singles.length
     ? Math.min(...singles.map((service) => service.price_cents))
@@ -31,7 +35,18 @@ export default async function ProPage({ params }: PageProps) {
   const initials = pro.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <main>
+    <div className="shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <Link href="/" className="brand">
+            <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo" priority />
+          </Link>
+          <Link href="/auth/signup" className="button button-primary" style={{ fontSize: 14 }}>
+            Claim your page
+          </Link>
+        </div>
+      </header>
+      <main>
       <section className="pro-hero">
         <div className="container pro-hero-grid">
           <div>
@@ -92,8 +107,9 @@ export default async function ProPage({ params }: PageProps) {
       </section>
 
       <section className="profile-content" id="booking">
-        <BookingFlow pro={pro} services={services} availability={availability} />
+        <BookingFlow pro={pro} services={services} availability={availability} demoPaymentLink={demoPaymentLink} />
       </section>
     </main>
+    </div>
   );
 }

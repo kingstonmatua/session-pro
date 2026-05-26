@@ -2,35 +2,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarCheck, CreditCard, Bell, Star, Package, Link as LinkIcon } from 'lucide-react';
 
-function Logo() {
-  return (
-    <svg width="36" height="36" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="36" cy="36" r="33" stroke="#E5E7EB" strokeWidth="3" />
-      <path d="M36 3 A33 33 0 1 1 3 45" stroke="#059669" strokeWidth="4" strokeLinecap="round" fill="none" />
-      <rect x="18" y="20" width="36" height="34" rx="7" fill="#D1FAE5" stroke="#059669" strokeWidth="2" />
-      <rect x="18" y="20" width="36" height="11" rx="7" fill="#059669" />
-      <rect x="18" y="27" width="36" height="4" fill="#059669" />
-      <rect x="27" y="15" width="3" height="10" rx="1.5" fill="#059669" />
-      <rect x="42" y="15" width="3" height="10" rx="1.5" fill="#059669" />
-      <path d="M27.5 40.5l5 5 12-13" stroke="#059669" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function FooterLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="36" cy="36" r="33" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
-      <path d="M36 3 A33 33 0 1 1 3 45" stroke="#6EE7B7" strokeWidth="4" strokeLinecap="round" fill="none" />
-      <rect x="18" y="20" width="36" height="34" rx="7" fill="rgba(110,231,183,0.15)" stroke="#6EE7B7" strokeWidth="2" />
-      <rect x="18" y="20" width="36" height="11" rx="7" fill="#6EE7B7" />
-      <rect x="18" y="27" width="36" height="4" fill="#6EE7B7" />
-      <rect x="27" y="15" width="3" height="10" rx="1.5" fill="#6EE7B7" />
-      <rect x="42" y="15" width="3" height="10" rx="1.5" fill="#6EE7B7" />
-      <path d="M27.5 40.5l5 5 12-13" stroke="#6EE7B7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function CheckIcon() {
   return (
@@ -51,10 +22,7 @@ export default function LandingPage() {
       <nav className="nav" role="navigation" aria-label="Main navigation">
         <div className="nav__inner">
           <a href="#" className="nav__brand" aria-label="SessionPro home">
-            <Logo />
-            <span style={{ fontFamily: 'var(--font-jakarta), "Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 18, color: '#111827', letterSpacing: '-0.02em' }}>
-              Session<span style={{ color: '#059669' }}>Pro</span>
-            </span>
+            <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo" priority />
           </a>
 
           <div className="nav__links" role="list">
@@ -639,8 +607,7 @@ export default function LandingPage() {
           <div className="footer__inner">
 
             <div className="footer__brand">
-              <FooterLogo />
-              <span className="footer__wordmark">Session<span>Pro</span></span>
+              <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="footer-logo" />
             </div>
 
             <nav className="footer__links" aria-label="Footer navigation">

@@ -31,7 +31,9 @@ export async function POST(req: Request) {
   };
 
   if (!holdId || !proId || !serviceId) {
-    return NextResponse.json({ error: 'Missing metadata' }, { status: 400 });
+    // Payment Link purchase — no booking record created, Stripe handles the receipt
+    console.log('[webhook] payment link purchase completed:', session.id, session.customer_details?.email);
+    return NextResponse.json({ received: true });
   }
 
   const supabase = createAdminClient();

@@ -1,6 +1,8 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { AvailabilityRule, Pro, ProPageData, Service } from "@/types/sessionpro";
 
+export const DEMO_PRO_ID = "11111111-1111-4111-8111-111111111111";
+
 const dayLabels: Record<AvailabilityRule["day"], string> = {
   mon: "Monday",
   tue: "Tuesday",

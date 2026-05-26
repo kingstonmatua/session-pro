@@ -1,7 +1,7 @@
 'use client';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -11,18 +11,39 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const ALL_SLOTS = ['8:00 AM','9:15 AM','10:30 AM','11:45 AM','1:00 PM','2:15 PM','3:30 PM','4:45 PM'];
 
-function getBookedSlots(date: Date): string[] {
-  const seed = date.getDate() + date.getMonth();
-  return [ALL_SLOTS[seed % ALL_SLOTS.length], ALL_SLOTS[(seed + 3) % ALL_SLOTS.length]];
+function calDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+// Convert a UTC ISO timestamp to the pro's local date (YYYY-MM-DD) and matching slot label.
+function utcToProDateSlot(utcIso: string, timezone: string): { dateStr: string; slotLabel: string } {
+  const date = new Date(utcIso);
+  // en-CA gives YYYY-MM-DD reliably
+  const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date);
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).formatToParts(date);
+  const hour = parts.find(p => p.type === 'hour')?.value ?? '';
+  const minute = parts.find(p => p.type === 'minute')?.value ?? '';
+  const period = parts.find(p => p.type === 'dayPeriod')?.value ?? '';
+  return { dateStr, slotLabel: `${hour}:${minute} ${period}` };
 }
 
 type Props = {
   proId: string;
+  timezone: string;
   onDateSelect: (date: Date | null) => void;
   onTimeSelect: (time: string | null) => void;
 };
 
-export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
+export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }: Props) {
   const todayRef = new Date();
   todayRef.setHours(0, 0, 0, 0);
 
@@ -30,6 +51,30 @@ export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
   const [calMonth, setCalMonth] = useState(todayRef.getMonth());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [bookedByDate, setBookedByDate] = useState<Map<string, Set<string>>>(new Map());
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingSlots(true);
+
+    fetch(`/api/availability/${proId}?year=${calYear}&month=${calMonth}`)
+      .then(r => r.ok ? r.json() : { bookedStartTimes: [] })
+      .then(({ bookedStartTimes }: { bookedStartTimes: string[] }) => {
+        if (cancelled) return;
+        const map = new Map<string, Set<string>>();
+        for (const iso of bookedStartTimes) {
+          const { dateStr, slotLabel } = utcToProDateSlot(iso, timezone);
+          if (!map.has(dateStr)) map.set(dateStr, new Set());
+          map.get(dateStr)!.add(slotLabel);
+        }
+        setBookedByDate(map);
+        setLoadingSlots(false);
+      })
+      .catch(() => { if (!cancelled) setLoadingSlots(false); });
+
+    return () => { cancelled = true; };
+  }, [proId, timezone, calYear, calMonth]);
 
   function navMonth(delta: number) {
     let m = calMonth + delta;
@@ -46,7 +91,6 @@ export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
     onDateSelect(date);
   }
 
-  // Build day cells — week starts Monday
   const firstDOW = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
   const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
 
@@ -84,7 +128,9 @@ export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
     );
   });
 
-  const bookedSlots = selectedDate ? getBookedSlots(selectedDate) : [];
+  const bookedSlots = selectedDate
+    ? (bookedByDate.get(calDateKey(selectedDate)) ?? new Set<string>())
+    : new Set<string>();
 
   return (
     <div>
@@ -113,28 +159,40 @@ export function BookingCalendar({ onDateSelect, onTimeSelect }: Props) {
           <div className="slots-label">
             Available times &mdash; {DAYS_LONG[selectedDate.getDay()]}, {MONTHS_SHORT[selectedDate.getMonth()]} {selectedDate.getDate()}
           </div>
-          <div className="slots-grid">
-            {ALL_SLOTS.map(slot => {
-              const isBooked = bookedSlots.includes(slot);
-              const isSelected = slot === selectedSlot;
-              const cls = [
-                'slot-btn',
-                isBooked ? 'slot-booked' : '',
-                isSelected ? 'slot-selected' : '',
-              ].filter(Boolean).join(' ');
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  className={cls}
-                  disabled={isBooked}
-                  onClick={() => { if (!isBooked) { setSelectedSlot(slot); onTimeSelect(slot); } }}
-                >
-                  {slot}
-                </button>
-              );
-            })}
-          </div>
+          {loadingSlots ? (
+            <div className="slots-loading">
+              <Loader2 size={15} className="slots-spinner" />
+              Checking availability…
+            </div>
+          ) : (
+            <div className="slots-grid">
+              {ALL_SLOTS.map(slot => {
+                const isBooked = bookedSlots.has(slot);
+                const isSelected = slot === selectedSlot;
+                const cls = [
+                  'slot-btn',
+                  isBooked ? 'slot-booked' : '',
+                  isSelected ? 'slot-selected' : '',
+                ].filter(Boolean).join(' ');
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    className={cls}
+                    disabled={isBooked}
+                    onClick={() => {
+                      if (!isBooked) {
+                        setSelectedSlot(slot);
+                        onTimeSelect(slot);
+                      }
+                    }}
+                  >
+                    {slot}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

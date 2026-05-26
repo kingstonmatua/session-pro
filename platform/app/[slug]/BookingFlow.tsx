@@ -10,6 +10,7 @@ type Props = {
   pro: Pro;
   services: Service[];
   availability: AvailabilityRule[];
+  demoPaymentLink?: string;
 };
 
 const MONTHS_LONG = [
@@ -18,7 +19,7 @@ const MONTHS_LONG = [
 ];
 const DAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function BookingFlow({ pro, services, availability }: Props) {
+export function BookingFlow({ pro, services, availability, demoPaymentLink }: Props) {
   const singles = services.filter((s) => s.kind === 'single');
   const packages = services.filter((s) => s.kind === 'package');
 
@@ -41,6 +42,12 @@ export function BookingFlow({ pro, services, availability }: Props) {
 
   async function handleProceedToPayment() {
     if (!canCheckout) return;
+
+    if (demoPaymentLink) {
+      window.location.href = demoPaymentLink;
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -159,6 +166,7 @@ export function BookingFlow({ pro, services, availability }: Props) {
           </div>
           <BookingCalendar
             proId={pro.id}
+            timezone={pro.timezone}
             onDateSelect={handleDateSelect}
             onTimeSelect={setSelectedTime}
           />
