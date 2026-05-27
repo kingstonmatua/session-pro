@@ -12,6 +12,7 @@ type Props = {
   availability: AvailabilityRule[];
   demoPaymentLink?: string;
   enrollmentMode?: EnrollmentMode | null;
+  bookingMode?: 'instant' | 'request';
 };
 
 const MONTHS_LONG = [
@@ -20,7 +21,8 @@ const MONTHS_LONG = [
 ];
 const DAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function BookingFlow({ pro, services, availability, demoPaymentLink, enrollmentMode }: Props) {
+export function BookingFlow({ pro, services, availability, demoPaymentLink, enrollmentMode, bookingMode }: Props) {
+  const isRequestMode = bookingMode === 'request' && !enrollmentMode && !demoPaymentLink;
   const singles = services.filter((s) => s.kind === 'single');
   const packages = services.filter((s) => s.kind === 'package');
 
@@ -31,6 +33,11 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Request mode fields
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [requestSent, setRequestSent] = useState(false);
 
   const canCheckout = selectedService !== null && selectedDate !== null && selectedTime !== null;
 
@@ -48,6 +55,34 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
     String(selectedDate.getMonth() + 1).padStart(2, '0'),
     String(selectedDate.getDate()).padStart(2, '0'),
   ].join('-') : '';
+
+  async function handleSubmitRequest() {
+    if (!canCheckout || !clientName.trim() || !clientEmail.trim()) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/booking-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proId: pro.id,
+          serviceId: selectedService!.id,
+          date: dateStr,
+          timeSlot: selectedTime,
+          clientName: clientName.trim(),
+          clientEmail: clientEmail.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Something went wrong. Please try again.');
+      }
+      setRequestSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    }
+    setIsLoading(false);
+  }
 
   async function handleProceedToPayment() {
     if (!canCheckout) return;
@@ -125,19 +160,21 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           </div>
           <div className="mobile-checkout-bar-time">{mobileTimeLabel}</div>
         </div>
-        <button
-          className="button button-primary"
-          type="button"
-          onClick={handleProceedToPayment}
-          disabled={isLoading}
-        >
-          {isLoading ? <Loader2 size={15} className="slots-spinner" /> : null}
-          {isLoading
-            ? 'Booking…'
-            : enrollmentMode
-            ? 'Book session'
-            : `Pay ${centsToDollars(selectedService!.price_cents)}`}
-        </button>
+        {!isRequestMode && (
+          <button
+            className="button button-primary"
+            type="button"
+            onClick={handleProceedToPayment}
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 size={15} className="slots-spinner" /> : null}
+            {isLoading
+              ? 'Booking…'
+              : enrollmentMode
+              ? 'Book session'
+              : `Pay ${centsToDollars(selectedService!.price_cents)}`}
+          </button>
+        )}
       </div>
     )}
     <div className="container booking-grid">
@@ -278,23 +315,65 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
         </div>
         <div className="summary-total">
           <span>Total</span>
-          <strong>{enrollmentMode ? 'Included in package' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
+          <strong>{enrollmentMode ? 'Included in package' : isRequestMode ? 'Review by pro' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
         </div>
 
         {error && <p className="booking-error">{error}</p>}
 
-        <button
-          className="button button-primary booking-button"
-          type="button"
-          onClick={handleProceedToPayment}
-          disabled={!canCheckout || isLoading}
-        >
-          {isLoading
-            ? <><Loader2 size={16} className="slots-spinner" /> {enrollmentMode ? 'Booking…' : 'Redirecting to payment…'}</>
-            : enrollmentMode ? 'Book session' : 'Proceed to payment'
-          }
-        </button>
-        <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>
+        {isRequestMode ? (
+          requestSent ? (
+            <div className="booking-request-sent">
+              <CheckCircle2 size={20} color="var(--green)" />
+              <div>
+                <strong>Request sent!</strong>
+                <p>{pro.full_name} will review and send you a payment link if accepted.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="booking-request-fields">
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="Your full name"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+                <input
+                  className="form-input"
+                  type="email"
+                  placeholder="Your email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                />
+              </div>
+              <button
+                className="button button-primary booking-button"
+                type="button"
+                onClick={handleSubmitRequest}
+                disabled={!canCheckout || !clientName.trim() || !clientEmail.trim() || isLoading}
+              >
+                {isLoading ? <><Loader2 size={16} className="slots-spinner" /> Sending…</> : 'Request booking'}
+              </button>
+              <p className="fine-print">Your request goes to {pro.full_name} for review. No charge until accepted.</p>
+            </>
+          )
+        ) : (
+          <>
+            <button
+              className="button button-primary booking-button"
+              type="button"
+              onClick={handleProceedToPayment}
+              disabled={!canCheckout || isLoading}
+            >
+              {isLoading
+                ? <><Loader2 size={16} className="slots-spinner" /> {enrollmentMode ? 'Booking…' : 'Redirecting to payment…'}</>
+                : enrollmentMode ? 'Book session' : 'Proceed to payment'
+              }
+            </button>
+            <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>
+          </>
+        )}
 
         <div className="availability-card">
           <div className="availability-title">

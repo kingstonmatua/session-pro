@@ -16,6 +16,7 @@ export type Pro = {
   rating_count: number;
   status: "draft" | "active" | "paused" | "archived";
   stripe_connect_account_id: string | null;
+  booking_mode: "instant" | "request";
 };
 
 export type Service = {
@@ -57,6 +58,39 @@ export type ProPageData = {
   services: Service[];
   availability: AvailabilityRule[];
   reviews: Review[];
+};
+
+export type BookingRequest = {
+  id: string;
+  pro_id: string;
+  service_id: string;
+  client_name: string;
+  client_email: string;
+  requested_starts_at: string;
+  requested_ends_at: string;
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'paid';
+  stripe_checkout_session_id: string | null;
+  payment_expires_at: string | null;
+  created_at: string;
+};
+
+export type BlockedTime = {
+  id: string;
+  pro_id: string;
+  starts_at: string;
+  ends_at: string;
+  label: string | null;
+  created_at: string;
+};
+
+export type RescheduleRequest = {
+  id: string;
+  booking_id: string;
+  pro_id: string;
+  new_starts_at: string;
+  new_ends_at: string;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  created_at: string;
 };
 
 export type PackageEnrollment = {

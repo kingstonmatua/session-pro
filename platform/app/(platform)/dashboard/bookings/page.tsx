@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
 import { SendLinkButton } from './SendLinkButton';
+import { RequestActionButtons } from './RequestActionButtons';
 
 function formatBookingTime(utcIso: string, timezone: string) {
   const date = new Date(utcIso);
@@ -45,7 +46,7 @@ export default async function BookingsPage() {
 
   if (!pro) redirect('/onboarding');
 
-  const [{ data: bookings }, { data: enrollments }] = await Promise.all([
+  const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }] = await Promise.all([
     supabase
       .from('bookings')
       .select('*, clients(full_name, email), services(name, duration_minutes)')
@@ -58,6 +59,12 @@ export default async function BookingsPage() {
       .eq('pro_id', pro.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
+    supabase
+      .from('booking_requests')
+      .select('id, client_name, client_email, requested_starts_at, requested_ends_at, services(name)')
+      .eq('pro_id', pro.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true }),
   ]);
 
   const now = new Date().toISOString();
@@ -77,6 +84,33 @@ export default async function BookingsPage() {
           </Link>
           <h1>Bookings</h1>
         </div>
+
+        {/* Pending booking requests */}
+        {(pendingRequests ?? []).length > 0 && (
+          <div className="dashboard-card" style={{ marginBottom: 16, borderColor: 'var(--amber)' }}>
+            <h3 style={{ color: 'var(--amber)' }}>Pending requests ({pendingRequests!.length})</h3>
+            <div className="bookings-list">
+              {pendingRequests!.map((req) => {
+                const service = req.services as unknown as { name: string } | null;
+                const { date, time } = formatBookingTime(req.requested_starts_at, pro.timezone);
+                return (
+                  <div key={req.id} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
+                    <span>
+                      <strong style={{ fontSize: 14 }}>{date}</strong>
+                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>
+                    </span>
+                    <span>
+                      <strong style={{ fontSize: 14 }}>{req.client_name}</strong>
+                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{req.client_email}</span>
+                    </span>
+                    <span style={{ fontSize: 13 }}>{service?.name ?? '—'}</span>
+                    <RequestActionButtons requestId={req.id} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="bookings-stats">

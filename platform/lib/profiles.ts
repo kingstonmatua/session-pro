@@ -100,7 +100,8 @@ function getDemoFallback(slug: string): ProPageData | null {
       rating_average: 4.9,
       rating_count: 47,
       status: "active",
-      stripe_connect_account_id: null
+      stripe_connect_account_id: null,
+      booking_mode: "instant"
     },
     services: [
       makeService(proId, "Beginner lesson", "Beginner", "single", 1, 10000, null, 10),

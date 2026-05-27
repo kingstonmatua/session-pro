@@ -41,6 +41,7 @@ type Pro = {
   years_experience: number | null;
   profile_photo_path: string | null;
   session_mode: 'in_person' | 'online' | 'hybrid';
+  booking_mode: 'instant' | 'request';
 };
 
 type Props = {
@@ -65,6 +66,7 @@ export function EditProfileForm({ pro, availability, services }: Props) {
   const [bio, setBio] = useState(pro.bio ?? '');
   const [yearsExp, setYearsExp] = useState(pro.years_experience != null ? String(pro.years_experience) : '');
   const [sessionMode, setSessionMode] = useState(pro.session_mode);
+  const [bookingMode, setBookingMode] = useState<'instant' | 'request'>(pro.booking_mode ?? 'request');
 
   const existingPhotoUrl = pro.profile_photo_path
     ? pro.profile_photo_path.startsWith('/')
@@ -149,6 +151,7 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       bio: bio.trim() || null,
       years_experience: yearsExp ? parseInt(yearsExp, 10) : null,
       session_mode: sessionMode,
+      booking_mode: bookingMode,
     };
 
     if (photoFile) {
@@ -332,6 +335,30 @@ export function EditProfileForm({ pro, availability, services }: Props) {
               ))}
             </div>
           </div>
+        </div>
+
+        <div className="form-field">
+          <label className="form-label">Booking mode</label>
+          <div className="session-mode-group">
+            {(['request', 'instant'] as const).map(mode => (
+              <label key={mode} className={`session-mode-option ${bookingMode === mode ? 'session-mode-option--active' : ''}`}>
+                <input
+                  type="radio"
+                  name="booking_mode"
+                  value={mode}
+                  checked={bookingMode === mode}
+                  onChange={() => setBookingMode(mode)}
+                  style={{ display: 'none' }}
+                />
+                {mode === 'request' ? 'Request to book' : 'Instant book'}
+              </label>
+            ))}
+          </div>
+          <p style={{ marginTop: 6, fontSize: 13, color: 'var(--ink-soft)' }}>
+            {bookingMode === 'request'
+              ? 'Clients request a time and you accept before payment is collected.'
+              : 'Clients pay immediately without waiting for your approval.'}
+          </p>
         </div>
 
         <div className="form-field">

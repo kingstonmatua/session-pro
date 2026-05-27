@@ -25,10 +25,11 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { holdId, proId, serviceId } = (session.metadata ?? {}) as {
+  const { holdId, proId, serviceId, requestId } = (session.metadata ?? {}) as {
     holdId?: string;
     proId?: string;
     serviceId?: string;
+    requestId?: string;
   };
 
   if (!holdId || !proId || !serviceId) {
@@ -147,9 +148,12 @@ export async function POST(req: Request) {
   }).select('id').single();
 
   await Promise.all([
-    paymentInsert.then(({ data: payment }) => {
+    paymentInsert.then(async ({ data: payment }) => {
       if (enrollmentId && payment?.id) {
-        return supabase.from('package_enrollments').update({ payment_id: payment.id }).eq('id', enrollmentId);
+        await supabase.from('package_enrollments').update({ payment_id: payment.id }).eq('id', enrollmentId);
+      }
+      if (requestId) {
+        await supabase.from('booking_requests').update({ status: 'paid' }).eq('id', requestId);
       }
     }),
     supabase.from('booking_holds').update({ status: 'converted' }).eq('id', holdId),

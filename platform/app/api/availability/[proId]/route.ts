@@ -23,7 +23,7 @@ export async function GET(
 
   const supabase = createAdminClient();
 
-  const [{ data: bookings }, { data: holds }] = await Promise.all([
+  const [{ data: bookings }, { data: holds }, { data: blocked }] = await Promise.all([
     supabase
       .from('bookings')
       .select('starts_at')
@@ -39,6 +39,12 @@ export async function GET(
       .gt('expires_at', new Date().toISOString())
       .gte('starts_at', startOfMonth)
       .lte('starts_at', endOfMonth),
+    supabase
+      .from('blocked_times')
+      .select('starts_at, ends_at')
+      .eq('pro_id', proId)
+      .gte('starts_at', startOfMonth)
+      .lte('starts_at', endOfMonth),
   ]);
 
   const bookedStartTimes = [
@@ -46,5 +52,5 @@ export async function GET(
     ...(holds ?? []).map((h) => h.starts_at),
   ];
 
-  return NextResponse.json({ bookedStartTimes });
+  return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [] });
 }

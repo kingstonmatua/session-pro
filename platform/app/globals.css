@@ -2229,3 +2229,442 @@ h1 {
   color: var(--ink-soft);
   border-color: var(--border);
 }
+
+/* ---- Booking request mode ---- */
+.booking-request-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.booking-request-sent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--green-light);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.booking-request-sent strong {
+  display: block;
+  font-size: 14px;
+  color: var(--green);
+  margin-bottom: 2px;
+}
+
+.booking-request-sent p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-mid);
+}
+
+/* ---- Calendar ---- */
+.cal-shell {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.cal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.cal-toolbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  cursor: pointer;
+  color: var(--ink);
+  transition: background 0.15s;
+}
+
+.cal-nav-btn:hover { background: var(--bg); }
+
+.cal-nav-title {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 200px;
+  text-align: center;
+}
+
+.cal-view-tabs {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cal-view-tab {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--white);
+  color: var(--ink-soft);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cal-view-tab + .cal-view-tab { border-left: 1px solid var(--border); }
+
+.cal-view-tab--active {
+  background: var(--ink);
+  color: var(--white);
+}
+
+.cal-legend {
+  display: flex;
+  gap: 20px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.cal-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-legend-dot--booking { background: var(--green); }
+.cal-legend-dot--request { background: var(--amber); }
+.cal-legend-dot--blocked { background: #9ca3af; }
+
+.cal-block-form {
+  padding: 14px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-body {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.cal-body:has(.cal-detail-sidebar) {
+  grid-template-columns: 1fr 300px;
+}
+
+.cal-main {
+  overflow-x: auto;
+}
+
+/* Monthly view */
+.cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.cal-month-header {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.cal-day-cell {
+  min-height: 110px;
+  padding: 6px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.cal-day-cell--empty {
+  background: var(--bg);
+  min-height: 110px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-day-cell--today .cal-day-number {
+  background: var(--ink);
+  color: var(--white);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-day-number {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  margin-bottom: 4px;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+}
+
+.cal-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-event-pill {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cal-event-pill:hover { opacity: 0.8; }
+
+.cal-event-pill--booking {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.cal-event-pill--request {
+  background: var(--amber-light);
+  color: var(--amber);
+}
+
+.cal-event-pill--blocked {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.cal-event-more {
+  font-size: 11px;
+  color: var(--ink-soft);
+  padding: 0 6px;
+}
+
+/* Weekly view */
+.cal-week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, 1fr);
+  border-top: 1px solid var(--border);
+  min-width: 700px;
+}
+
+.cal-time-gutter {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-week-header {
+  padding: 8px;
+  text-align: center;
+  font-size: 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-soft);
+}
+
+.cal-week-header span { font-weight: 600; font-size: 11px; text-transform: uppercase; }
+.cal-week-header strong { font-size: 18px; font-weight: 700; color: var(--ink); }
+
+.cal-week-header--today strong {
+  background: var(--ink);
+  color: var(--white);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-hour-label {
+  padding: 6px 8px 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-align: right;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  line-height: 1;
+}
+
+.cal-hour-cell {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-height: 44px;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-week-event {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Day view */
+.cal-day-view-grid {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.cal-day-view-row {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  border-bottom: 1px solid var(--border);
+  min-height: 52px;
+}
+
+.cal-day-view-events {
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Detail sidebar */
+.cal-detail-sidebar {
+  border-left: 1px solid var(--border);
+}
+
+.cal-detail-panel {
+  padding: 20px;
+}
+
+.cal-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cal-detail-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cal-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.cal-close-btn:hover { color: var(--ink); }
+
+.cal-detail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.cal-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-detail-row span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-detail-row strong {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.cal-detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-reschedule-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cal-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.cal-form-row label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Reschedule page */
+.reschedule-proposed-row .booking-confirm-row-value {
+  color: var(--green);
+  font-weight: 700;
+}

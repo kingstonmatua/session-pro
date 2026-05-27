@@ -180,6 +180,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <Link href="/dashboard/bookings" className="button">
               <Calendar size={15} /> Manage bookings
             </Link>
+            <Link href="/dashboard/calendar" className="button">
+              <Calendar size={15} /> Calendar
+            </Link>
             <Link href="/dashboard/reviews" className="button">
               <MessageSquare size={15} /> Reviews
             </Link>

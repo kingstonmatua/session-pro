@@ -193,7 +193,14 @@ export default async function ProPage({ params, searchParams }: PageProps) {
       )}
 
       <section className="profile-content" id="booking">
-        <BookingFlow pro={pro} services={services} availability={availability} demoPaymentLink={demoPaymentLink} enrollmentMode={enrollmentMode} />
+        <BookingFlow
+          pro={pro}
+          services={services}
+          availability={availability}
+          demoPaymentLink={demoPaymentLink}
+          enrollmentMode={enrollmentMode}
+          bookingMode={pro.booking_mode ?? 'instant'}
+        />
       </section>
     </main>
     </div>
