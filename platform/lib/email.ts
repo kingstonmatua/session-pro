@@ -330,6 +330,285 @@ export async function sendReviewRequest(params: ReviewRequestParams) {
   if (error) console.error('[email] review request failed:', error);
 }
 
+type BookingRequestToProParams = {
+  proEmail: string;
+  proName: string;
+  clientName: string;
+  clientEmail: string;
+  serviceName: string;
+  requestedStartsAt: string;
+  timezone: string;
+};
+
+export async function sendBookingRequestToPro(params: BookingRequestToProParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#059669;padding:28px 32px;">
+          <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">New booking request</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.proName.split(' ')[0]}, <strong>${params.clientName}</strong> has requested a session with you.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Client', params.clientName)}
+              ${row('Email', params.clientEmail)}
+              ${row('Session', params.serviceName)}
+              ${row('Date', dateStr)}
+              ${row('Time', timeStr)}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+            <tr><td align="center">
+              <a href="${appUrl}/dashboard/calendar" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+                Review request
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">Accept or decline from your dashboard. The client will be notified.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.proEmail, subject: `New booking request — ${params.clientName}`, html });
+  if (error) console.error('[email] booking request to pro failed:', error);
+}
+
+type PaymentLinkToClientParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  requestedStartsAt: string;
+  timezone: string;
+  location: string | null;
+  paymentUrl: string;
+  paymentExpiresAt: string;
+};
+
+export async function sendPaymentLinkToClient(params: PaymentLinkToClientParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
+  const expiryStr = new Date(params.paymentExpiresAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#059669;padding:28px 32px;">
+          <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Your request was accepted!</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, <strong>${params.proName}</strong> has accepted your booking request. Complete your payment to confirm the session.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row('Date', dateStr)}
+              ${row('Time', timeStr)}
+              ${params.location ? row('Location', params.location) : ''}
+              ${row('Payment link expires', expiryStr)}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+            <tr><td align="center">
+              <a href="${params.paymentUrl}" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+                Complete payment
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">This link expires on ${expiryStr}. If it expires, contact your instructor to request a new one.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.clientEmail, subject: `Your session with ${params.proName} is confirmed — complete payment`, html });
+  if (error) console.error('[email] payment link to client failed:', error);
+}
+
+type BookingRequestDeclinedParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  requestedStartsAt: string;
+  timezone: string;
+};
+
+export async function sendBookingRequestDeclined(params: BookingRequestDeclinedParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#374151;padding:28px 32px;">
+          <p style="margin:0;color:#d1d5db;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Request not accepted</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, unfortunately <strong>${params.proName}</strong> wasn&rsquo;t available for the time you requested.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row('Requested date', dateStr)}
+              ${row('Requested time', timeStr)}
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">You&rsquo;re welcome to request a different time on their profile page.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.clientEmail, subject: `Session request update — ${params.proName}`, html });
+  if (error) console.error('[email] request declined failed:', error);
+}
+
+type RescheduleRequestToClientParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  oldStartsAt: string;
+  newStartsAt: string;
+  newEndsAt: string;
+  timezone: string;
+  rescheduleRequestId: string;
+};
+
+export async function sendRescheduleRequestToClient(params: RescheduleRequestToClientParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const { dateStr: oldDateStr, timeStr: oldTimeStr } = formatDateTime(params.oldStartsAt, params.timezone);
+  const { dateStr: newDateStr, timeStr: newTimeStr } = formatDateTime(params.newStartsAt, params.timezone);
+  const acceptUrl = `${appUrl}/booking/reschedule?request_id=${params.rescheduleRequestId}&action=accept`;
+  const declineUrl = `${appUrl}/booking/reschedule?request_id=${params.rescheduleRequestId}&action=decline`;
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#d97706;padding:28px 32px;">
+          <p style="margin:0;color:#fef3c7;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Session reschedule request</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, <strong>${params.proName}</strong> has proposed a new time for your ${params.serviceName} session.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Original date', oldDateStr)}
+              ${row('Original time', oldTimeStr)}
+              ${row('Proposed date', `<strong>${newDateStr}</strong>`)}
+              ${row('Proposed time', `<strong>${newTimeStr}</strong>`)}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+            <tr>
+              <td style="padding-right:8px;">
+                <a href="${acceptUrl}" style="display:block;text-align:center;background:#059669;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;border-radius:8px;">Accept</a>
+              </td>
+              <td style="padding-left:8px;">
+                <a href="${declineUrl}" style="display:block;text-align:center;background:#f9fafb;color:#374151;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;border-radius:8px;border:1px solid #e5e7eb;">Decline</a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you decline, your original session time remains confirmed.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.clientEmail, subject: `Reschedule request — ${params.serviceName} with ${params.proName}`, html });
+  if (error) console.error('[email] reschedule request to client failed:', error);
+}
+
+type RescheduleResultToProParams = {
+  proEmail: string;
+  proName: string;
+  clientName: string;
+  serviceName: string;
+  newStartsAt: string;
+  timezone: string;
+  accepted: boolean;
+};
+
+export async function sendRescheduleResultToPro(params: RescheduleResultToProParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.newStartsAt, params.timezone);
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:${params.accepted ? '#059669' : '#374151'};padding:28px 32px;">
+          <p style="margin:0;color:${params.accepted ? '#d1fae5' : '#d1d5db'};font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">${params.accepted ? 'Reschedule accepted' : 'Reschedule declined'}</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            ${params.accepted
+              ? `<strong>${params.clientName}</strong> has accepted the reschedule. The session is now confirmed for the new time.`
+              : `<strong>${params.clientName}</strong> has declined the reschedule. The original session time remains.`}
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row(params.accepted ? 'New date' : 'Proposed date', dateStr)}
+              ${row(params.accepted ? 'New time' : 'Proposed time', timeStr)}
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.proEmail, subject: `Reschedule ${params.accepted ? 'accepted' : 'declined'} — ${params.clientName}`, html });
+  if (error) console.error('[email] reschedule result to pro failed:', error);
+}
+
 type ReminderEmailParams = {
   clientEmail: string;
   clientName: string;
