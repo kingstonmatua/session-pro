@@ -670,6 +670,13 @@ h1 {
   font-size: 28px;
 }
 
+.summary-total-note {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-top: 1px;
+}
+
 .availability-card {
   margin-top: 18px;
   border: 1px solid var(--border);

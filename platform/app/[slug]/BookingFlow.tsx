@@ -315,7 +315,14 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
         </div>
         <div className="summary-total">
           <span>Total</span>
-          <strong>{enrollmentMode ? 'Included in package' : isRequestMode ? 'Review by pro' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
+          {isRequestMode && selectedService ? (
+            <div style={{ textAlign: 'right' }}>
+              <strong>{centsToDollars(selectedService.price_cents)}</strong>
+              <div className="summary-total-note">if accepted</div>
+            </div>
+          ) : (
+            <strong>{enrollmentMode ? 'Included in package' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
+          )}
         </div>
 
         {error && <p className="booking-error">{error}</p>}
