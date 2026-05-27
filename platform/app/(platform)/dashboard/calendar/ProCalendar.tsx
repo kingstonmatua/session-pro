@@ -226,7 +226,12 @@ export function ProCalendar({ proId: _proId, timezone, bookings, requests, block
       });
       if (!res.ok) throw new Error('Failed to block slot');
       const { blockedTime } = await res.json();
-      setLocalBlocked((prev) => [...prev, blockedTime]);
+      setLocalBlocked((prev) => [...prev, {
+        id: blockedTime.id,
+        startsAt: blockedTime.starts_at,
+        endsAt: blockedTime.ends_at,
+        label: blockedTime.label,
+      }]);
     } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setSlotLoading(null);
   }
