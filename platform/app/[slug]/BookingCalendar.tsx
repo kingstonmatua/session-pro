@@ -160,12 +160,7 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     const isPast = date < todayRef;
     const isToday = date.getTime() === todayRef.getTime();
     const isSelected = selectedDate?.getTime() === date.getTime();
-    const dateKey = calDateKey(date);
-    // Check if the entire day is covered by blocked ranges
-    const isFullyBlocked = hasRule && blockedRanges.some(r => {
-      return new Date(r.starts_at) <= date && new Date(r.ends_at) >= new Date(date.getTime() + 24 * 60 * 60_000);
-    });
-    const disabled = !hasRule || isPast || isFullyBlocked;
+    const disabled = !hasRule || isPast;
 
     const cls = [
       'cal-day',
