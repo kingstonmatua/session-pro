@@ -1,7 +1,8 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, Globe, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { AvailabilityRule } from '@/types/sessionpro';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -9,7 +10,10 @@ const MONTHS = [
 ];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const ALL_SLOTS = ['8:00 AM','9:15 AM','10:30 AM','11:45 AM','1:00 PM','2:15 PM','3:30 PM','4:45 PM'];
+
+const DOW_TO_DAY: Record<number, AvailabilityRule['day']> = {
+  0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
+};
 
 function formatTimezone(tz: string): string {
   const now = new Date();
@@ -28,10 +32,8 @@ function calDateKey(date: Date): string {
   ].join('-');
 }
 
-// Convert a UTC ISO timestamp to the pro's local date (YYYY-MM-DD) and matching slot label.
 function utcToProDateSlot(utcIso: string, timezone: string): { dateStr: string; slotLabel: string } {
   const date = new Date(utcIso);
-  // en-CA gives YYYY-MM-DD reliably
   const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date);
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -45,14 +47,41 @@ function utcToProDateSlot(utcIso: string, timezone: string): { dateStr: string; 
   return { dateStr, slotLabel: `${hour}:${minute} ${period}` };
 }
 
+function generateSlots(rule: AvailabilityRule, durationMinutes: number, bufferMinutes: number): string[] {
+  const parseTime = (t: string): number => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const formatSlot = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    const period = h < 12 ? 'AM' : 'PM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
+  const start = parseTime(rule.start_time);
+  const end = parseTime(rule.end_time);
+  const interval = durationMinutes + bufferMinutes;
+  const slots: string[] = [];
+
+  for (let t = start; t + durationMinutes <= end; t += interval) {
+    slots.push(formatSlot(t));
+  }
+  return slots;
+}
+
 type Props = {
   proId: string;
   timezone: string;
+  availability: AvailabilityRule[];
+  durationMinutes: number;
+  bufferMinutes: number;
   onDateSelect: (date: Date | null) => void;
   onTimeSelect: (time: string | null) => void;
 };
 
-export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }: Props) {
+export function BookingCalendar({ proId, timezone, availability, durationMinutes, bufferMinutes, onDateSelect, onTimeSelect }: Props) {
   const todayRef = new Date();
   todayRef.setHours(0, 0, 0, 0);
 
@@ -62,6 +91,20 @@ export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }:
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedByDate, setBookedByDate] = useState<Map<string, Set<string>>>(new Map());
   const [loadingSlots, setLoadingSlots] = useState(false);
+
+  const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
+  for (const rule of availability) {
+    ruleByDay.set(rule.day, rule);
+  }
+
+  // Skip the initial mount — only reset slot when the service actually changes
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setSelectedSlot(null);
+    onTimeSelect(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [durationMinutes, bufferMinutes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,11 +154,11 @@ export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }:
     const d = i + 1;
     const date = new Date(calYear, calMonth, d);
     const dow = date.getDay();
-    const isWeekend = dow === 0 || dow === 6;
+    const hasRule = ruleByDay.has(DOW_TO_DAY[dow]);
     const isPast = date < todayRef;
     const isToday = date.getTime() === todayRef.getTime();
     const isSelected = selectedDate?.getTime() === date.getTime();
-    const disabled = isWeekend || isPast;
+    const disabled = !hasRule || isPast;
 
     const cls = [
       'cal-day',
@@ -136,6 +179,14 @@ export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }:
       </button>
     );
   });
+
+  const selectedRule = selectedDate
+    ? ruleByDay.get(DOW_TO_DAY[selectedDate.getDay()])
+    : undefined;
+
+  const availableSlots = selectedRule
+    ? generateSlots(selectedRule, durationMinutes, bufferMinutes)
+    : [];
 
   const bookedSlots = selectedDate
     ? (bookedByDate.get(calDateKey(selectedDate)) ?? new Set<string>())
@@ -178,9 +229,11 @@ export function BookingCalendar({ proId, timezone, onDateSelect, onTimeSelect }:
               <Loader2 size={15} className="slots-spinner" />
               Checking availability…
             </div>
+          ) : availableSlots.length === 0 ? (
+            <div className="slots-loading">No available times for this day.</div>
           ) : (
             <div className="slots-grid">
-              {ALL_SLOTS.map(slot => {
+              {availableSlots.map(slot => {
                 const isBooked = bookedSlots.has(slot);
                 const isSelected = slot === selectedSlot;
                 const cls = [

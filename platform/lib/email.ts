@@ -39,6 +39,8 @@ type ClientConfirmationParams = {
   timezone: string;
   location: string | null;
   priceCents: number;
+  sessionContext?: string;
+  bookingId?: string;
 };
 
 export async function sendClientConfirmation(params: ClientConfirmationParams) {
@@ -69,6 +71,7 @@ export async function sendClientConfirmation(params: ClientConfirmationParams) {
 
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
               <tr><td style="padding:20px 24px;">
+                ${params.sessionContext ? row('Package', params.sessionContext) : ''}
                 ${row('Session', params.serviceName)}
                 ${row('Date', dateStr)}
                 ${row('Time', timeStr)}
@@ -77,6 +80,15 @@ export async function sendClientConfirmation(params: ClientConfirmationParams) {
               </td></tr>
             </table>
 
+            ${params.bookingId ? `
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+              <tr><td align="center">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io'}/booking/cancel?booking_id=${params.bookingId}"
+                   style="color:#6b7280;font-size:13px;text-decoration:underline;">
+                  Cancel this booking
+                </a>
+              </td></tr>
+            </table>` : ''}
             <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
               Free cancellation up to 24 hours before your session. Reply to this email if you have any questions.
             </p>
@@ -316,6 +328,234 @@ export async function sendReviewRequest(params: ReviewRequestParams) {
 
   const { error } = await resend.emails.send(sendParams);
   if (error) console.error('[email] review request failed:', error);
+}
+
+type ReminderEmailParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  startsAt: string;
+  timezone: string;
+  location: string | null;
+  scheduledAt: string;
+};
+
+export async function sendReminderEmail(params: ReminderEmailParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="background:#059669;padding:28px 32px;">
+            <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SessionPro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:800;">Your session is tomorrow</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              Hi ${params.clientName.split(' ')[0]}, just a reminder that your session with <strong>${params.proName}</strong> is coming up tomorrow.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+              <tr><td style="padding:20px 24px;">
+                ${row('Session', params.serviceName)}
+                ${row('Date', dateStr)}
+                ${row('Time', timeStr)}
+                ${params.location ? row('Location', params.location) : ''}
+              </td></tr>
+            </table>
+
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              See you there! Reply to this email if you need to get in touch.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const sendParams: Parameters<typeof resend.emails.send>[0] = {
+    from: FROM,
+    to: params.clientEmail,
+    subject: `Reminder: your session with ${params.proName} is tomorrow`,
+    html,
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (sendParams as any).scheduledAt = params.scheduledAt;
+
+  const { error } = await resend.emails.send(sendParams);
+  if (error) console.error('[email] reminder failed:', error);
+}
+
+type EnrollmentSessionConfirmationParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  sessionNumber: number;
+  sessionsTotal: number;
+  startsAt: string;
+  timezone: string;
+  location: string | null;
+};
+
+export async function sendEnrollmentSessionConfirmation(params: EnrollmentSessionConfirmationParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="background:#059669;padding:28px 32px;">
+            <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SessionPro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:800;">Session ${params.sessionNumber} confirmed!</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              Hi ${params.clientName.split(' ')[0]}, your session ${params.sessionNumber} of ${params.sessionsTotal} with <strong>${params.proName}</strong> is confirmed.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+              <tr><td style="padding:20px 24px;">
+                ${row('Package', `${params.serviceName} — Session ${params.sessionNumber} of ${params.sessionsTotal}`)}
+                ${row('Date', dateStr)}
+                ${row('Time', timeStr)}
+                ${params.location ? row('Location', params.location) : ''}
+                ${row('Payment', 'Included in package')}
+              </td></tr>
+            </table>
+
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              Reply to this email if you have any questions.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.clientEmail,
+    subject: `Session ${params.sessionNumber} confirmed — ${params.serviceName} with ${params.proName}`,
+    html,
+  });
+  if (error) console.error('[email] enrollment session confirmation failed:', error);
+}
+
+type NextSessionLinkParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  proSlug: string;
+  serviceName: string;
+  enrollmentId: string;
+  sessionNumber: number;
+  sessionsTotal: number;
+};
+
+export async function sendNextSessionLink(params: NextSessionLinkParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const bookingUrl = `${appUrl}/${params.proSlug}?enrollment=${params.enrollmentId}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="background:#059669;padding:28px 32px;">
+            <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SessionPro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:800;">Time to book your next session</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              Hi ${params.clientName.split(' ')[0]}, your <strong>${params.serviceName}</strong> package still has sessions remaining. Book your next one whenever you&rsquo;re ready.
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+              <tr><td style="padding:20px 24px;">
+                ${row('Package', params.serviceName)}
+                ${row('Next session', `Session ${params.sessionNumber} of ${params.sessionsTotal}`)}
+                ${row('With', params.proName)}
+                ${row('Payment', 'Already covered — book for free')}
+              </td></tr>
+            </table>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr><td align="center">
+                <a href="${bookingUrl}" style="display:inline-block;background:#059669;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+                  Book session ${params.sessionNumber}
+                </a>
+              </td></tr>
+            </table>
+
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              This link is personal to you. Reply to this email if you have any questions.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.clientEmail,
+    subject: `Book your next session with ${params.proName} — Session ${params.sessionNumber} of ${params.sessionsTotal}`,
+    html,
+  });
+  if (error) console.error('[email] next session link failed:', error);
 }
 
 function row(label: string, value: string) {

@@ -12,6 +12,43 @@ type BookingDetails = {
   location: string | null;
 };
 
+async function fetchBookingDetailsByBookingId(bookingId: string): Promise<BookingDetails | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const supabase = createAdminClient();
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('starts_at, ends_at, pros(full_name, timezone, club_or_business, slug), services(name)')
+      .eq('id', bookingId)
+      .single();
+
+    if (!booking) return null;
+    const pro = booking.pros as unknown as { full_name: string; timezone: string; club_or_business: string | null; slug: string };
+    const service = booking.services as unknown as { name: string };
+    const tz = pro.timezone;
+    const start = new Date(booking.starts_at);
+    const end = new Date(booking.ends_at);
+
+    const dateStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    }).format(start);
+
+    const fmtTime = (d: Date) =>
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
+
+    return {
+      proName: pro.full_name,
+      proSlug: pro.slug,
+      serviceName: service.name,
+      dateStr,
+      timeStr: `${fmtTime(start)} – ${fmtTime(end)}`,
+      location: pro.club_or_business ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchBookingDetails(sessionId: string): Promise<BookingDetails | null> {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
 
@@ -64,13 +101,17 @@ async function fetchBookingDetails(sessionId: string): Promise<BookingDetails | 
 }
 
 type PageProps = {
-  searchParams: Promise<{ proSlug?: string; session_id?: string }>;
+  searchParams: Promise<{ proSlug?: string; session_id?: string; booking_id?: string }>;
 };
 
 export default async function BookingSuccessPage({ searchParams }: PageProps) {
-  const { proSlug, session_id } = await searchParams;
+  const { proSlug, session_id, booking_id } = await searchParams;
 
-  const details = session_id ? await fetchBookingDetails(session_id) : null;
+  const details = session_id
+    ? await fetchBookingDetails(session_id)
+    : booking_id
+    ? await fetchBookingDetailsByBookingId(booking_id)
+    : null;
   const backSlug = details?.proSlug ?? proSlug;
 
   return (

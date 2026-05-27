@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { centsToDollars, getProPageData, DEMO_PRO_ID } from "@/lib/profiles";
-import type { AvailabilityRule } from "@/types/sessionpro";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { AvailabilityRule, EnrollmentMode, Service } from "@/types/sessionpro";
 
 const DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAY_SHORT: Record<string, string> = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -27,14 +28,33 @@ const SESSION_MODE_LABEL: Record<string, string> = {
   hybrid: 'In person & online',
 };
 
+async function getEnrollmentMode(enrollmentId: string, proId: string): Promise<EnrollmentMode | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('package_enrollments')
+    .select('id, sessions_total, sessions_used, services(*)')
+    .eq('id', enrollmentId)
+    .eq('pro_id', proId)
+    .eq('status', 'active')
+    .single();
+  if (!data || data.sessions_used >= data.sessions_total) return null;
+  return {
+    id: data.id,
+    sessionsTotal: data.sessions_total,
+    sessionsUsed: data.sessions_used,
+    service: data.services as unknown as Service,
+  };
+}
+
 type PageProps = {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ enrollment?: string }>;
 };
 
-export default async function ProPage({ params }: PageProps) {
+export default async function ProPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { enrollment: enrollmentId } = await searchParams;
   const data = await getProPageData(slug);
 
   if (!data) {
@@ -45,6 +65,7 @@ export default async function ProPage({ params }: PageProps) {
   const demoPaymentLink = pro.id === DEMO_PRO_ID
     ? process.env.NEXT_PUBLIC_STRIPE_DEMO_PAYMENT_LINK
     : undefined;
+  const enrollmentMode = enrollmentId ? await getEnrollmentMode(enrollmentId, pro.id) : null;
   const singles = services.filter((service) => service.kind === "single");
   const startingPrice = singles.length
     ? Math.min(...singles.map((service) => service.price_cents))
@@ -172,7 +193,7 @@ export default async function ProPage({ params }: PageProps) {
       )}
 
       <section className="profile-content" id="booking">
-        <BookingFlow pro={pro} services={services} availability={availability} demoPaymentLink={demoPaymentLink} />
+        <BookingFlow pro={pro} services={services} availability={availability} demoPaymentLink={demoPaymentLink} enrollmentMode={enrollmentMode} />
       </section>
     </main>
     </div>

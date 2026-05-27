@@ -59,3 +59,22 @@ export type ProPageData = {
   reviews: Review[];
 };
 
+export type PackageEnrollment = {
+  id: string;
+  pro_id: string;
+  client_id: string;
+  service_id: string;
+  payment_id: string | null;
+  sessions_total: number;
+  sessions_used: number;
+  status: 'active' | 'completed' | 'cancelled';
+  created_at: string;
+};
+
+export type EnrollmentMode = {
+  id: string;
+  sessionsTotal: number;
+  sessionsUsed: number;
+  service: Service;
+};
+

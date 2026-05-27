@@ -4,13 +4,14 @@ import { CalendarDays, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { BookingCalendar } from './BookingCalendar';
 import { centsToDollars, formatAvailability } from '@/lib/profiles';
-import type { AvailabilityRule, Pro, Service } from '@/types/sessionpro';
+import type { AvailabilityRule, EnrollmentMode, Pro, Service } from '@/types/sessionpro';
 
 type Props = {
   pro: Pro;
   services: Service[];
   availability: AvailabilityRule[];
   demoPaymentLink?: string;
+  enrollmentMode?: EnrollmentMode | null;
 };
 
 const MONTHS_LONG = [
@@ -19,11 +20,13 @@ const MONTHS_LONG = [
 ];
 const DAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function BookingFlow({ pro, services, availability, demoPaymentLink }: Props) {
+export function BookingFlow({ pro, services, availability, demoPaymentLink, enrollmentMode }: Props) {
   const singles = services.filter((s) => s.kind === 'single');
   const packages = services.filter((s) => s.kind === 'package');
 
-  const [selectedService, setSelectedService] = useState<Service | null>(singles[0] ?? null);
+  const [selectedService, setSelectedService] = useState<Service | null>(
+    enrollmentMode?.service ?? singles[0] ?? null
+  );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,23 +43,42 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
     setSelectedTime(null);
   }
 
+  const dateStr = selectedDate ? [
+    selectedDate.getFullYear(),
+    String(selectedDate.getMonth() + 1).padStart(2, '0'),
+    String(selectedDate.getDate()).padStart(2, '0'),
+  ].join('-') : '';
+
   async function handleProceedToPayment() {
     if (!canCheckout) return;
-
-    if (demoPaymentLink) {
-      setIsLoading(true);
-      window.location.href = demoPaymentLink;
-      return;
-    }
 
     setIsLoading(true);
     setError(null);
 
-    const dateStr = [
-      selectedDate.getFullYear(),
-      String(selectedDate.getMonth() + 1).padStart(2, '0'),
-      String(selectedDate.getDate()).padStart(2, '0'),
-    ].join('-');
+    if (enrollmentMode) {
+      try {
+        const res = await fetch(`/api/enrollments/${enrollmentMode.id}/book`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateStr, timeSlot: selectedTime }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? 'Something went wrong. Please try again.');
+        }
+        const { bookingId } = await res.json();
+        window.location.href = `/booking/success?proSlug=${pro.slug}&booking_id=${bookingId}`;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    if (demoPaymentLink) {
+      window.location.href = demoPaymentLink;
+      return;
+    }
 
     try {
       const res = await fetch('/api/checkout', {
@@ -64,7 +86,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           proId: pro.id,
-          serviceId: selectedService.id,
+          serviceId: selectedService!.id,
           date: dateStr,
           timeSlot: selectedTime,
         }),
@@ -83,6 +105,10 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
     }
   }
 
+  const sessionLabel = enrollmentMode
+    ? `Session ${enrollmentMode.sessionsUsed + 1} of ${enrollmentMode.sessionsTotal}`
+    : null;
+
   const mobileTimeLabel = selectedDate && selectedTime
     ? `${DAYS_LONG[selectedDate.getDay()].slice(0, 3)} ${MONTHS_LONG[selectedDate.getMonth()].slice(0, 3)} ${selectedDate.getDate()} · ${selectedTime}`
     : selectedDate
@@ -94,7 +120,9 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
     {canCheckout && (
       <div className="mobile-checkout-bar">
         <div className="mobile-checkout-bar-info">
-          <div className="mobile-checkout-bar-service">{selectedService!.name}</div>
+          <div className="mobile-checkout-bar-service">
+            {sessionLabel ?? selectedService!.name}
+          </div>
           <div className="mobile-checkout-bar-time">{mobileTimeLabel}</div>
         </div>
         <button
@@ -104,94 +132,115 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
           disabled={isLoading}
         >
           {isLoading ? <Loader2 size={15} className="slots-spinner" /> : null}
-          {isLoading ? 'Redirecting…' : `Pay ${centsToDollars(selectedService!.price_cents)}`}
+          {isLoading
+            ? 'Booking…'
+            : enrollmentMode
+            ? 'Book session'
+            : `Pay ${centsToDollars(selectedService!.price_cents)}`}
         </button>
       </div>
     )}
     <div className="container booking-grid">
       <div>
-        <section className="panel">
-          <div className="section-heading">
-            <span>01</span>
-            <div>
-              <h2>Choose a session</h2>
-              <p>Select the lesson that fits your game. Packages are available for clients who want consistent progress.</p>
+        {enrollmentMode ? (
+          <section className="panel">
+            <div className="section-heading">
+              <span>01</span>
+              <div>
+                <h2>{enrollmentMode.service.name}</h2>
+                <p>Session {enrollmentMode.sessionsUsed + 1} of {enrollmentMode.sessionsTotal} &mdash; already paid. Pick a date and time below.</p>
+              </div>
             </div>
-          </div>
-          <div className="service-grid">
-            {singles.map((service) => (
-              <article
-                key={service.id}
-                className={`service-card ${selectedService?.id === service.id ? 'selected' : ''}`}
-                onClick={() => setSelectedService(service)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && setSelectedService(service)}
-              >
-                <div className="service-topline">
-                  <div>
-                    <div className="service-name">{service.name}</div>
-                    <div className="service-detail">{service.duration_minutes} minutes · {service.level}</div>
-                  </div>
-                  <CheckCircle2 size={18} />
+          </section>
+        ) : (
+          <>
+            <section className="panel">
+              <div className="section-heading">
+                <span>01</span>
+                <div>
+                  <h2>Choose a session</h2>
+                  <p>Select the lesson that fits your game. Packages are available for clients who want consistent progress.</p>
                 </div>
-                <div className="price">{centsToDollars(service.price_cents)}</div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section panel">
-          <div className="section-heading">
-            <span>02</span>
-            <div>
-              <h2>Packages</h2>
-              <p>Save when you book multiple lessons up front.</p>
-            </div>
-          </div>
-          <div className="service-grid">
-            {packages.map((service) => {
-              const savings = service.compare_at_price_cents
-                ? service.compare_at_price_cents - service.price_cents
-                : 0;
-              return (
-                <article
-                  key={service.id}
-                  className={`service-card package ${selectedService?.id === service.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedService(service)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setSelectedService(service)}
-                >
-                  <div className="service-topline">
-                    <div>
-                      <div className="service-name">
-                        {service.name}{service.level ? ` (${service.level})` : ''}
+              </div>
+              <div className="service-grid">
+                {singles.map((service) => (
+                  <article
+                    key={service.id}
+                    className={`service-card ${selectedService?.id === service.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedService(service)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelectedService(service)}
+                  >
+                    <div className="service-topline">
+                      <div>
+                        <div className="service-name">{service.name}</div>
+                        <div className="service-detail">{service.duration_minutes} minutes · {service.level}</div>
                       </div>
-                      <div className="service-detail">
-                        {service.session_count} sessions · {centsToDollars(Math.round(service.price_cents / service.session_count))}/session
-                      </div>
+                      <CheckCircle2 size={18} />
                     </div>
-                    {savings > 0 && <span className="savings">Save {centsToDollars(savings)}</span>}
-                  </div>
-                  <div className="price">{centsToDollars(service.price_cents)}</div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
+                    <div className="price">{centsToDollars(service.price_cents)}</div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="section panel">
+              <div className="section-heading">
+                <span>02</span>
+                <div>
+                  <h2>Packages</h2>
+                  <p>Save when you book multiple lessons up front.</p>
+                </div>
+              </div>
+              <div className="service-grid">
+                {packages.map((service) => {
+                  const savings = service.compare_at_price_cents
+                    ? service.compare_at_price_cents - service.price_cents
+                    : 0;
+                  return (
+                    <article
+                      key={service.id}
+                      className={`service-card package ${selectedService?.id === service.id ? 'selected' : ''}`}
+                      onClick={() => setSelectedService(service)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedService(service)}
+                    >
+                      <div className="service-topline">
+                        <div>
+                          <div className="service-name">
+                            {service.name}{service.level ? ` (${service.level})` : ''}
+                          </div>
+                          <div className="service-detail">
+                            {service.session_count} sessions · {centsToDollars(Math.round(service.price_cents / service.session_count))}/session
+                          </div>
+                        </div>
+                        {savings > 0 && <span className="savings">Save {centsToDollars(savings)}</span>}
+                      </div>
+                      <div className="price">{centsToDollars(service.price_cents)}</div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )}
 
         <section className="section panel">
           <div className="section-heading">
-            <span>03</span>
+            <span>{enrollmentMode ? '02' : '03'}</span>
             <div>
-              <h2>Select a date and time</h2>
-              <p>Weekday lesson availability at {pro.club_or_business ?? 'the club'}.</p>
+              <h2>{sessionLabel ? `Book ${sessionLabel}` : 'Select a date and time'}</h2>
+              <p>Pick a date and time at {pro.club_or_business ?? 'the location'}.</p>
             </div>
           </div>
           <BookingCalendar
             proId={pro.id}
             timezone={pro.timezone}
+            availability={availability}
+            durationMinutes={selectedService?.duration_minutes ?? 60}
+            bufferMinutes={selectedService?.buffer_minutes ?? 15}
             onDateSelect={handleDateSelect}
             onTimeSelect={setSelectedTime}
           />
@@ -213,7 +262,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
         </div>
         <div className="summary-row">
           <span>Session</span>
-          <strong>{selectedService?.name ?? '—'}</strong>
+          <strong>{sessionLabel ?? selectedService?.name ?? '—'}</strong>
         </div>
         <div className="summary-row">
           <span>Date</span>
@@ -229,7 +278,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
         </div>
         <div className="summary-total">
           <span>Total</span>
-          <strong>{selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
+          <strong>{enrollmentMode ? 'Included in package' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
         </div>
 
         {error && <p className="booking-error">{error}</p>}
@@ -241,8 +290,8 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink }: Pr
           disabled={!canCheckout || isLoading}
         >
           {isLoading
-            ? <><Loader2 size={16} className="slots-spinner" /> Redirecting to payment…</>
-            : 'Proceed to payment'
+            ? <><Loader2 size={16} className="slots-spinner" /> {enrollmentMode ? 'Booking…' : 'Redirecting to payment…'}</>
+            : enrollmentMode ? 'Book session' : 'Proceed to payment'
           }
         </button>
         <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>

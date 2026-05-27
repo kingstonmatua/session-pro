@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendClientConfirmation, sendProNotification, sendReviewRequest } from '@/lib/email';
+import { sendClientConfirmation, sendProNotification, sendReviewRequest, sendReminderEmail } from '@/lib/email';
+
 
 export async function POST(req: Request) {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   try {
   const [{ data: hold }, { data: service }, { data: pro }] = await Promise.all([
     supabase.from('booking_holds').select('*').eq('id', holdId).single(),
-    supabase.from('services').select('name, price_cents, currency, duration_minutes').eq('id', serviceId).single(),
+    supabase.from('services').select('name, price_cents, currency, duration_minutes, kind, session_count').eq('id', serviceId).single(),
     supabase.from('pros').select('full_name, timezone, club_or_business, user_id').eq('id', proId).single(),
   ]);
 
@@ -80,6 +81,24 @@ export async function POST(req: Request) {
   const platformFeeCents = Math.round(priceCents * 0.10);
   const proPayoutCents = priceCents - platformFeeCents;
 
+  // For package purchases, create an enrollment before the booking
+  let enrollmentId: string | null = null;
+  if (service.kind === 'package') {
+    const { data: enrollment } = await supabase
+      .from('package_enrollments')
+      .insert({
+        pro_id: proId,
+        client_id: clientId,
+        service_id: serviceId,
+        sessions_total: service.session_count,
+        sessions_used: 1,
+        status: 'active',
+      })
+      .select('id')
+      .single();
+    enrollmentId = enrollment?.id ?? null;
+  }
+
   const { data: booking, error: bookingError } = await supabase
     .from('bookings')
     .insert({
@@ -87,6 +106,7 @@ export async function POST(req: Request) {
       client_id: clientId,
       service_id: serviceId,
       hold_id: holdId,
+      enrollment_id: enrollmentId,
       starts_at: hold.starts_at,
       ends_at: hold.ends_at,
       status: 'confirmed',
@@ -115,16 +135,22 @@ export async function POST(req: Request) {
     proEmail = proUser?.email;
   }
 
+  const paymentInsert = supabase.from('payments').insert({
+    booking_id: booking.id,
+    stripe_checkout_session_id: session.id,
+    stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+    amount_cents: priceCents,
+    platform_fee_cents: platformFeeCents,
+    currency: service.currency,
+    status: 'paid',
+    paid_at: new Date().toISOString(),
+  }).select('id').single();
+
   await Promise.all([
-    supabase.from('payments').insert({
-      booking_id: booking.id,
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
-      amount_cents: priceCents,
-      platform_fee_cents: platformFeeCents,
-      currency: service.currency,
-      status: 'paid',
-      paid_at: new Date().toISOString(),
+    paymentInsert.then(({ data: payment }) => {
+      if (enrollmentId && payment?.id) {
+        return supabase.from('package_enrollments').update({ payment_id: payment.id }).eq('id', enrollmentId);
+      }
     }),
     supabase.from('booking_holds').update({ status: 'converted' }).eq('id', holdId),
     sendClientConfirmation({
@@ -136,6 +162,8 @@ export async function POST(req: Request) {
       timezone: pro.timezone,
       location: pro.club_or_business,
       priceCents,
+      sessionContext: service.kind === 'package' ? `Session 1 of ${service.session_count}` : undefined,
+      bookingId: booking.id,
     }),
     proEmail ? sendProNotification({
       proEmail,
@@ -147,6 +175,19 @@ export async function POST(req: Request) {
       timezone: pro.timezone,
       payoutCents: proPayoutCents,
     }) : Promise.resolve(),
+    // Schedule reminder 24h before session (only if session is >25h away)
+    customerEmail && new Date(hold.starts_at).getTime() - Date.now() > 25 * 60 * 60 * 1000
+      ? sendReminderEmail({
+          clientEmail: customerEmail,
+          clientName: customerName,
+          proName: pro.full_name,
+          serviceName: service.name,
+          startsAt: hold.starts_at,
+          timezone: pro.timezone,
+          location: pro.club_or_business,
+          scheduledAt: new Date(new Date(hold.starts_at).getTime() - 24 * 60 * 60 * 1000).toISOString(),
+        })
+      : Promise.resolve(),
     // Schedule review request 24h after the session ends
     customerEmail ? sendReviewRequest({
       clientEmail: customerEmail,

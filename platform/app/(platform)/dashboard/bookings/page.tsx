@@ -1,8 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown, Package } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
+import { SendLinkButton } from './SendLinkButton';
 
 function formatBookingTime(utcIso: string, timezone: string) {
   const date = new Date(utcIso);
@@ -44,12 +45,20 @@ export default async function BookingsPage() {
 
   if (!pro) redirect('/onboarding');
 
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select('*, clients(full_name, email), services(name, duration_minutes)')
-    .eq('pro_id', pro.id)
-    .in('status', ['confirmed', 'pending_payment'])
-    .order('starts_at', { ascending: true });
+  const [{ data: bookings }, { data: enrollments }] = await Promise.all([
+    supabase
+      .from('bookings')
+      .select('*, clients(full_name, email), services(name, duration_minutes)')
+      .eq('pro_id', pro.id)
+      .in('status', ['confirmed', 'pending_payment'])
+      .order('starts_at', { ascending: true }),
+    supabase
+      .from('package_enrollments')
+      .select('id, sessions_total, sessions_used, clients(full_name, email), services(name)')
+      .eq('pro_id', pro.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false }),
+  ]);
 
   const now = new Date().toISOString();
   const upcoming = (bookings ?? []).filter(b => b.starts_at >= now);
@@ -149,6 +158,46 @@ export default async function BookingsPage() {
             </>
           )}
         </div>
+
+        {/* Package Enrollments */}
+        {(enrollments ?? []).length > 0 && (
+          <div className="dashboard-card" style={{ marginBottom: 16 }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Package size={18} color="var(--green)" /> Active packages
+            </h3>
+            <div className="bookings-header-row">
+              <span>Client</span>
+              <span>Package</span>
+              <span>Sessions</span>
+              <span></span>
+            </div>
+            <div className="bookings-list">
+              {(enrollments ?? []).map(enrollment => {
+                const client = enrollment.clients as unknown as { full_name: string; email: string } | null;
+                const service = enrollment.services as unknown as { name: string } | null;
+                const remaining = enrollment.sessions_total - enrollment.sessions_used;
+                return (
+                  <div key={enrollment.id} className="booking-row">
+                    <div className="booking-cell">
+                      <strong>{client?.full_name ?? '—'}</strong>
+                      <span>{client?.email ?? '—'}</span>
+                    </div>
+                    <div className="booking-cell">
+                      <strong>{service?.name ?? '—'}</strong>
+                    </div>
+                    <div className="booking-cell">
+                      <strong>{enrollment.sessions_used} of {enrollment.sessions_total} used</strong>
+                      <span>{remaining} remaining</span>
+                    </div>
+                    <div className="booking-cell-actions">
+                      <SendLinkButton enrollmentId={enrollment.id} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Past */}
         <div className="dashboard-card">
