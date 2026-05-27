@@ -32,6 +32,7 @@ export default async function CalendarPage() {
     { data: requests },
     { data: blockedTimes },
     { data: availability },
+    { data: services },
   ] = await Promise.all([
     admin
       .from('bookings')
@@ -61,6 +62,13 @@ export default async function CalendarPage() {
       .select('*')
       .eq('pro_id', pro.id)
       .eq('is_active', true),
+    supabase
+      .from('services')
+      .select('duration_minutes, buffer_minutes')
+      .eq('pro_id', pro.id)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+      .limit(1),
   ]);
 
   return (
@@ -101,6 +109,8 @@ export default async function CalendarPage() {
             label: b.label,
           }))}
           availabilityRules={availability ?? []}
+          durationMinutes={services?.[0]?.duration_minutes ?? 60}
+          bufferMinutes={services?.[0]?.buffer_minutes ?? 0}
         />
       </div>
     </div>

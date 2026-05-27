@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Loader2, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AvailabilityRule } from '@/types/sessionpro';
 
@@ -23,21 +23,28 @@ type Props = {
   requests: CalRequest[];
   blockedTimes: CalBlocked[];
   availabilityRules: AvailabilityRule[];
+  durationMinutes: number;
+  bufferMinutes: number;
 };
 
 type View = 'month' | 'week' | 'day';
 type EventKind = 'booking' | 'request' | 'blocked';
-type SelectedEvent = {
-  kind: EventKind;
-  data: CalBooking | CalRequest | CalBlocked;
-};
+type SelectedEvent = { kind: EventKind; data: CalBooking | CalRequest | CalBlocked };
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 6am–9pm
 
+const DOW_TO_DAY: Record<number, AvailabilityRule['day']> = {
+  0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
+};
+
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function dateToStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function toLocalDate(iso: string, tz: string) {
@@ -65,27 +72,68 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes, availabilityRules }: Props) {
+function generateSlots(startTime: string, endTime: string, durationMinutes: number, bufferMinutes: number): string[] {
+  const parseTime = (t: string): number => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const formatSlot = (totalMinutes: number): string => {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    const period = h < 12 ? 'AM' : 'PM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+  const start = parseTime(startTime);
+  const end = parseTime(endTime);
+  const interval = durationMinutes + bufferMinutes;
+  const slots: string[] = [];
+  for (let t = start; t + durationMinutes <= end; t += interval) {
+    slots.push(formatSlot(t));
+  }
+  return slots;
+}
+
+function slotToUTC(dateStr: string, slotLabel: string, tz: string): string {
+  const [time, period] = slotLabel.split(' ');
+  const [hStr, mStr] = time.split(':');
+  let h = parseInt(hStr);
+  const m = parseInt(mStr);
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+
+  // Iterate to find the UTC time that corresponds to h:m in the given timezone
+  let est = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  for (let i = 0; i < 3; i++) {
+    const parts = Object.fromEntries(fmt.formatToParts(est).map(p => [p.type, p.value]));
+    const diff = (h * 60 + m) - (parseInt(parts.hour) % 24 * 60 + parseInt(parts.minute));
+    if (diff === 0) break;
+    est = new Date(est.getTime() + diff * 60_000);
+  }
+  return est.toISOString();
+}
+
+export function ProCalendar({ proId: _proId, timezone, bookings, requests, blockedTimes, availabilityRules, durationMinutes, bufferMinutes }: Props) {
   const [view, setView] = useState<View>('month');
   const [currentDate, setCurrentDate] = useState(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<SelectedEvent | null>(null);
-  const [localBookings, setLocalBookings] = useState(bookings);
+  const [slotPanelDay, setSlotPanelDay] = useState<Date | null>(null);
+  const [localBookings] = useState(bookings);
   const [localRequests, setLocalRequests] = useState(requests);
   const [localBlocked, setLocalBlocked] = useState(blockedTimes);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [showBlockForm, setShowBlockForm] = useState(false);
-  const [blockDate, setBlockDate] = useState('');
-  const [blockStart, setBlockStart] = useState('');
-  const [blockEnd, setBlockEnd] = useState('');
-  const [blockLabel, setBlockLabel] = useState('');
-  const [blockSaving, setBlockSaving] = useState(false);
+  const [slotLoading, setSlotLoading] = useState<string | null>(null);
   // Reschedule sub-form
   const [showReschedule, setShowReschedule] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleStart, setRescheduleStart] = useState('');
   const [rescheduleEnd, setRescheduleEnd] = useState('');
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
+
+  const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
+  for (const rule of availabilityRules) ruleByDay.set(rule.day, rule);
 
   // ── Navigation ──────────────────────────────────────────────────
   function navigate(delta: number) {
@@ -127,75 +175,70 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
     return events.sort((a, b) => a.time.localeCompare(b.time));
   }
 
+  function openSlotPanel(day: Date) {
+    setSlotPanelDay(day);
+    setSelected(null);
+    setShowReschedule(false);
+    setActionError('');
+  }
+
   // ── Actions ─────────────────────────────────────────────────────
   async function acceptRequest(requestId: string) {
-    setActionLoading(true);
-    setActionError('');
+    setActionLoading(true); setActionError('');
     try {
       const res = await fetch(`/api/booking-requests/${requestId}/accept`, { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Failed to accept');
-      }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? 'Failed to accept'); }
       setLocalRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, status: 'accepted' } : r));
       setSelected(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error');
-    }
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setActionLoading(false);
   }
 
   async function declineRequest(requestId: string) {
-    setActionLoading(true);
-    setActionError('');
+    setActionLoading(true); setActionError('');
     try {
       const res = await fetch(`/api/booking-requests/${requestId}/decline`, { method: 'POST' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Failed to decline');
-      }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? 'Failed to decline'); }
       setLocalRequests((prev) => prev.filter((r) => r.id !== requestId));
       setSelected(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error');
-    }
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setActionLoading(false);
   }
 
   async function removeBlocked(id: string) {
-    setActionLoading(true);
-    setActionError('');
+    setActionLoading(true); setActionError('');
     try {
       const res = await fetch(`/api/blocked-times/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to remove');
       setLocalBlocked((prev) => prev.filter((b) => b.id !== id));
       setSelected(null);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error');
-    }
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setActionLoading(false);
   }
 
-  async function saveBlockedTime() {
-    if (!blockDate || !blockStart || !blockEnd) return;
-    setBlockSaving(true);
-    const startsAt = new Date(`${blockDate}T${blockStart}`).toISOString();
-    const endsAt = new Date(`${blockDate}T${blockEnd}`).toISOString();
+  async function blockSlot(slotLabel: string, startsAt: string, endsAt: string) {
+    setSlotLoading(slotLabel); setActionError('');
     try {
       const res = await fetch('/api/blocked-times', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startsAt, endsAt, label: blockLabel || null }),
+        body: JSON.stringify({ startsAt, endsAt, label: null }),
       });
-      if (!res.ok) throw new Error('Failed to block time');
+      if (!res.ok) throw new Error('Failed to block slot');
       const { blockedTime } = await res.json();
       setLocalBlocked((prev) => [...prev, blockedTime]);
-      setShowBlockForm(false);
-      setBlockDate(''); setBlockStart(''); setBlockEnd(''); setBlockLabel('');
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error');
-    }
-    setBlockSaving(false);
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
+    setSlotLoading(null);
+  }
+
+  async function unblockSlot(id: string) {
+    setSlotLoading(id); setActionError('');
+    try {
+      const res = await fetch(`/api/blocked-times/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to unblock');
+      setLocalBlocked((prev) => prev.filter((b) => b.id !== id));
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
+    setSlotLoading(null);
   }
 
   async function proposeReschedule(bookingId: string) {
@@ -209,17 +252,10 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingId, newStartsAt, newEndsAt }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Failed to propose reschedule');
-      }
-      setShowReschedule(false);
-      setSelected(null);
-      setActionError('');
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? 'Failed'); }
+      setShowReschedule(false); setSelected(null); setActionError('');
       alert('Reschedule request sent to client.');
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Error');
-    }
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setRescheduleSaving(false);
   }
 
@@ -247,17 +283,33 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
           if (!day) return <div key={i} className="cal-day-cell cal-day-cell--empty" />;
           const events = eventsForDay(day);
           const isToday = isSameDay(day, today);
+          const isSlotDay = slotPanelDay ? isSameDay(day, slotPanelDay) : false;
           return (
-            <div key={i} className={`cal-day-cell${isToday ? ' cal-day-cell--today' : ''}`}>
+            <div
+              key={i}
+              className={`cal-day-cell${isToday ? ' cal-day-cell--today' : ''}${isSlotDay ? ' cal-day-cell--slot-active' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={() => openSlotPanel(day)}
+            >
               <span className="cal-day-number">{day.getDate()}</span>
               <div className="cal-day-events">
                 {events.slice(0, 3).map((ev, j) => (
                   <button
                     key={j}
                     className={`cal-event-pill cal-event-pill--${ev.kind}`}
-                    onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setShowReschedule(false); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelected({ kind: ev.kind, data: ev.data });
+                      setSlotPanelDay(null);
+                      setShowReschedule(false);
+                    }}
                   >
-                    {ev.time} {ev.kind === 'booking' ? (ev.data as CalBooking).clientName.split(' ')[0] : ev.kind === 'request' ? `Request: ${(ev.data as CalRequest).clientName.split(' ')[0]}` : (ev.data as CalBlocked).label ?? 'Blocked'}
+                    {ev.time}{' '}
+                    {ev.kind === 'booking'
+                      ? (ev.data as CalBooking).clientName.split(' ')[0]
+                      : ev.kind === 'request'
+                      ? `Request: ${(ev.data as CalRequest).clientName.split(' ')[0]}`
+                      : (ev.data as CalBlocked).label ?? 'Blocked'}
                   </button>
                 ))}
                 {events.length > 3 && <span className="cal-event-more">+{events.length - 3} more</span>}
@@ -273,7 +325,7 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
   function renderWeekView() {
     const days: Date[] = [];
     const start = new Date(currentDate);
-    start.setDate(start.getDate() - start.getDay()); // go to Sunday
+    start.setDate(start.getDate() - start.getDay());
     for (let i = 0; i < 7; i++) {
       const d = new Date(start); d.setDate(d.getDate() + i);
       days.push(startOfDay(d));
@@ -284,7 +336,12 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
       <div className="cal-week-grid">
         <div className="cal-time-gutter" />
         {days.map((day) => (
-          <div key={day.toISOString()} className={`cal-week-header${isSameDay(day, today) ? ' cal-week-header--today' : ''}`}>
+          <div
+            key={day.toISOString()}
+            className={`cal-week-header${isSameDay(day, today) ? ' cal-week-header--today' : ''}`}
+            style={{ cursor: 'pointer' }}
+            onClick={() => openSlotPanel(day)}
+          >
             <span>{DAY_NAMES[day.getDay()]}</span>
             <strong>{day.getDate()}</strong>
           </div>
@@ -296,7 +353,10 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
             </div>
             {days.map((day) => {
               const dayEvents = eventsForDay(day).filter((ev) => {
-                const ld = toLocalDate(ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt, timezone);
+                const ld = toLocalDate(
+                  ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt,
+                  timezone
+                );
                 return ld.getHours() === hour;
               });
               return (
@@ -305,7 +365,7 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
                     <button
                       key={j}
                       className={`cal-week-event cal-event-pill--${ev.kind}`}
-                      onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setShowReschedule(false); }}
+                      onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); }}
                     >
                       {ev.kind === 'booking' ? (ev.data as CalBooking).clientName.split(' ')[0] : ev.kind === 'request' ? 'Request' : 'Blocked'}
                     </button>
@@ -321,12 +381,14 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
 
   // ── Day view ────────────────────────────────────────────────────
   function renderDayView() {
-    const today = startOfDay(new Date());
     return (
       <div className="cal-day-view-grid">
         {HOURS.map((hour) => {
           const dayEvents = eventsForDay(currentDate).filter((ev) => {
-            const ld = toLocalDate(ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt, timezone);
+            const ld = toLocalDate(
+              ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt,
+              timezone
+            );
             return ld.getHours() === hour;
           });
           return (
@@ -339,7 +401,7 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
                   <button
                     key={j}
                     className={`cal-week-event cal-event-pill--${ev.kind}`}
-                    onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setShowReschedule(false); }}
+                    onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); }}
                   >
                     {ev.time} ·{' '}
                     {ev.kind === 'booking' ? (ev.data as CalBooking).serviceName : ev.kind === 'request' ? `Request: ${(ev.data as CalRequest).serviceName}` : (ev.data as CalBlocked).label ?? 'Blocked'}
@@ -349,6 +411,91 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
             </div>
           );
         })}
+      </div>
+    );
+  }
+
+  // ── Slot panel ───────────────────────────────────────────────────
+  function renderSlotPanel() {
+    if (!slotPanelDay) return null;
+    const dayStr = dateToStr(slotPanelDay);
+    const rule = ruleByDay.get(DOW_TO_DAY[slotPanelDay.getDay()]);
+    const dayName = slotPanelDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    return (
+      <div className="cal-detail-panel">
+        <div className="cal-detail-header">
+          <h3>{dayName}</h3>
+          <button className="cal-close-btn" onClick={() => { setSlotPanelDay(null); setActionError(''); }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {!rule ? (
+          <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>No availability set for this day.</p>
+        ) : (
+          <>
+            <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: '0 0 12px' }}>
+              Click a slot to block it. Click a blocked slot to unblock it.
+            </p>
+            <div className="cal-slot-grid">
+              {generateSlots(rule.start_time, rule.end_time, durationMinutes, bufferMinutes).map((slot) => {
+                const slotUTC = slotToUTC(dayStr, slot, timezone);
+                const slotStart = new Date(slotUTC);
+                const slotEnd = new Date(slotStart.getTime() + (durationMinutes + bufferMinutes) * 60_000);
+
+                const isBooked = localBookings.some((b) => {
+                  const bs = new Date(b.startsAt), be = new Date(b.endsAt);
+                  return slotStart < be && slotEnd > bs;
+                });
+
+                const blockedRecord = !isBooked ? localBlocked.find((b) => {
+                  const bs = new Date(b.startsAt), be = new Date(b.endsAt);
+                  return slotStart < be && slotEnd > bs;
+                }) : undefined;
+
+                if (isBooked) {
+                  return (
+                    <div key={slot} className="cal-slot-btn cal-slot-btn--booked">
+                      <span>{slot}</span>
+                      <span className="cal-slot-tag">Booked</span>
+                    </div>
+                  );
+                }
+
+                if (blockedRecord) {
+                  return (
+                    <button
+                      key={slot}
+                      className="cal-slot-btn cal-slot-btn--blocked"
+                      onClick={() => unblockSlot(blockedRecord.id)}
+                      disabled={slotLoading === blockedRecord.id}
+                      title="Click to unblock"
+                    >
+                      {slotLoading === blockedRecord.id ? <Loader2 size={11} className="slots-spinner" /> : null}
+                      <span>{slot}</span>
+                      <span className="cal-slot-tag">Blocked ×</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    key={slot}
+                    className="cal-slot-btn cal-slot-btn--available"
+                    onClick={() => blockSlot(slot, slotUTC, slotEnd.toISOString())}
+                    disabled={slotLoading === slot}
+                    title="Click to block"
+                  >
+                    {slotLoading === slot ? <Loader2 size={11} className="slots-spinner" /> : null}
+                    <span>{slot}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {actionError && <p className="booking-error" style={{ marginTop: 8, marginBottom: 0 }}>{actionError}</p>}
       </div>
     );
   }
@@ -410,20 +557,11 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
 
         {kind === 'request' && (data as CalRequest).status === 'pending' && !showReschedule && (
           <div className="cal-detail-actions">
-            <button
-              className="button button-primary"
-              onClick={() => acceptRequest((data as CalRequest).id)}
-              disabled={actionLoading}
-            >
+            <button className="button button-primary" onClick={() => acceptRequest((data as CalRequest).id)} disabled={actionLoading}>
               {actionLoading ? <Loader2 size={14} className="slots-spinner" /> : null}
               Accept &amp; send payment link
             </button>
-            <button
-              className="button"
-              onClick={() => declineRequest((data as CalRequest).id)}
-              disabled={actionLoading}
-              style={{ color: 'var(--amber)' }}
-            >
+            <button className="button" onClick={() => declineRequest((data as CalRequest).id)} disabled={actionLoading} style={{ color: 'var(--amber)' }}>
               Decline
             </button>
           </div>
@@ -470,12 +608,7 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
 
         {kind === 'blocked' && !showReschedule && (
           <div className="cal-detail-actions">
-            <button
-              className="button"
-              onClick={() => removeBlocked((data as CalBlocked).id)}
-              disabled={actionLoading}
-              style={{ color: 'var(--amber)' }}
-            >
+            <button className="button" onClick={() => removeBlocked((data as CalBlocked).id)} disabled={actionLoading} style={{ color: 'var(--amber)' }}>
               {actionLoading ? <Loader2 size={14} className="slots-spinner" /> : null}
               Remove blocked time
             </button>
@@ -497,71 +630,25 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
             Today
           </button>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            className="button"
-            style={{ fontSize: 13, minHeight: 34, padding: '0 12px' }}
-            onClick={() => { setShowBlockForm(!showBlockForm); setSelected(null); }}
-          >
-            <Plus size={14} /> Block time
-          </button>
-          <div className="cal-view-tabs">
-            {(['month','week','day'] as View[]).map((v) => (
-              <button
-                key={v}
-                className={`cal-view-tab${view === v ? ' cal-view-tab--active' : ''}`}
-                onClick={() => setView(v)}
-              >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </button>
-            ))}
-          </div>
+        <div className="cal-view-tabs">
+          {(['month', 'week', 'day'] as View[]).map((v) => (
+            <button
+              key={v}
+              className={`cal-view-tab${view === v ? ' cal-view-tab--active' : ''}`}
+              onClick={() => setView(v)}
+            >
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
-
-      {/* Block time form */}
-      {showBlockForm && (
-        <div className="cal-block-form">
-          <strong style={{ fontSize: 13 }}>Block a time</strong>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 10 }}>
-            <div className="cal-form-row" style={{ margin: 0 }}>
-              <label>Date</label>
-              <input type="date" className="form-input" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} />
-            </div>
-            <div className="cal-form-row" style={{ margin: 0 }}>
-              <label>From</label>
-              <input type="time" className="form-input" value={blockStart} onChange={(e) => setBlockStart(e.target.value)} />
-            </div>
-            <div className="cal-form-row" style={{ margin: 0 }}>
-              <label>To</label>
-              <input type="time" className="form-input" value={blockEnd} onChange={(e) => setBlockEnd(e.target.value)} />
-            </div>
-            <div className="cal-form-row" style={{ margin: 0 }}>
-              <label>Label (optional)</label>
-              <input type="text" className="form-input" placeholder="e.g. Out of town" value={blockLabel} onChange={(e) => setBlockLabel(e.target.value)} />
-            </div>
-            <button
-              className="button button-primary"
-              style={{ fontSize: 13, minHeight: 36, padding: '0 14px' }}
-              onClick={saveBlockedTime}
-              disabled={blockSaving || !blockDate || !blockStart || !blockEnd}
-            >
-              {blockSaving ? <Loader2 size={13} className="slots-spinner" /> : null}
-              Save
-            </button>
-            <button className="button" style={{ fontSize: 13, minHeight: 36, padding: '0 12px' }} onClick={() => setShowBlockForm(false)}>
-              Cancel
-            </button>
-          </div>
-          {actionError && <p className="booking-error" style={{ marginTop: 8, marginBottom: 0 }}>{actionError}</p>}
-        </div>
-      )}
 
       {/* Legend */}
       <div className="cal-legend">
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--booking" />Confirmed</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--request" />Pending request</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--blocked" />Blocked</span>
+        <span className="cal-legend-item" style={{ color: 'var(--ink-soft)', fontSize: 12 }}>· Click a day to manage slots</span>
       </div>
 
       <div className="cal-body">
@@ -570,9 +657,10 @@ export function ProCalendar({ proId, timezone, bookings, requests, blockedTimes,
           {view === 'week' && renderWeekView()}
           {view === 'day' && renderDayView()}
         </div>
-        {selected && (
+        {(selected || slotPanelDay) && (
           <div className="cal-detail-sidebar">
-            {renderDetailPanel()}
+            {selected && renderDetailPanel()}
+            {!selected && slotPanelDay && renderSlotPanel()}
           </div>
         )}
       </div>
