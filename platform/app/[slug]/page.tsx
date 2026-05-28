@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import { centsToDollars, getProPageData, DEMO_PRO_ID } from "@/lib/profiles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AvailabilityRule, EnrollmentMode, Service } from "@/types/sessionpro";
+import type { Metadata } from "next";
+import { StickyBookingBar } from "./StickyBookingBar";
 
 const DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAY_SHORT: Record<string, string> = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
@@ -52,6 +54,60 @@ type PageProps = {
   searchParams: Promise<{ enrollment?: string }>;
 };
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getProPageData(slug);
+
+  if (!data) return { title: 'Instructor not found | SessionPro' };
+
+  const { pro, services } = data;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+
+  const singles = services.filter((s) => s.kind === 'single');
+  const startingPrice = singles.length ? Math.min(...singles.map((s) => s.price_cents)) : null;
+
+  const location = [pro.location_city, pro.location_region].filter(Boolean).join(', ');
+
+  const title = [pro.full_name, pro.discipline ?? pro.title].filter(Boolean).join(' — ') + ' | SessionPro';
+
+  const descParts: string[] = [
+    `Book a session with ${pro.full_name}`,
+    pro.title ?? null,
+    location ? `in ${location}` : null,
+    pro.rating_count > 0 ? `${pro.rating_average?.toFixed(1)} stars` : null,
+    startingPrice ? `From ${centsToDollars(startingPrice)}/session` : null,
+  ].filter(Boolean) as string[];
+  const description = descParts.join(' · ') + '. Instant booking on SessionPro.';
+
+  const photoSrc = pro.profile_photo_path
+    ? pro.profile_photo_path.startsWith('/')
+      ? `${appUrl}${pro.profile_photo_path}`
+      : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pro-media/${pro.profile_photo_path}`
+    : null;
+
+  const pageUrl = `${appUrl}/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      siteName: 'SessionPro',
+      type: 'profile',
+      ...(photoSrc ? { images: [{ url: photoSrc, width: 900, height: 675, alt: pro.full_name }] } : {}),
+    },
+    twitter: {
+      card: photoSrc ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(photoSrc ? { images: [photoSrc] } : {}),
+    },
+  };
+}
+
 export default async function ProPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { enrollment: enrollmentId } = await searchParams;
@@ -80,8 +136,58 @@ export default async function ProPage({ params, searchParams }: PageProps) {
     : null;
   const initials = pro.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const location = [pro.location_city, pro.location_region].filter(Boolean).join(', ');
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: pro.full_name,
+    ...(pro.title ? { jobTitle: pro.title } : {}),
+    ...(pro.bio ? { description: pro.bio } : {}),
+    url: `${appUrl}/${pro.slug}`,
+    ...(photoSrc ? { image: photoSrc } : {}),
+    ...(location ? {
+      address: {
+        '@type': 'PostalAddress',
+        ...(pro.location_city ? { addressLocality: pro.location_city } : {}),
+        ...(pro.location_region ? { addressRegion: pro.location_region } : {}),
+        addressCountry: 'US',
+      },
+    } : {}),
+    ...(pro.rating_count > 0 ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: pro.rating_average?.toFixed(1),
+        ratingCount: pro.rating_count,
+        bestRating: '5',
+        worstRating: '1',
+      },
+    } : {}),
+    ...(startingPrice ? {
+      makesOffer: {
+        '@type': 'Offer',
+        name: `${pro.discipline ?? 'Session'} with ${pro.full_name}`,
+        price: (startingPrice / 100).toFixed(0),
+        priceCurrency: 'USD',
+        url: `${appUrl}/${pro.slug}`,
+      },
+    } : {}),
+  };
+
   return (
     <div className="shell">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <StickyBookingBar
+        proName={pro.full_name}
+        initials={initials}
+        photoSrc={photoSrc}
+        ratingAverage={pro.rating_average}
+        ratingCount={pro.rating_count}
+        startingPrice={startingPrice > 0 ? centsToDollars(startingPrice) : null}
+      />
       <header className="topbar">
         <div className="topbar-inner">
           <Link href="/" className="brand">
@@ -154,6 +260,7 @@ export default async function ProPage({ params, searchParams }: PageProps) {
             <a className="button button-primary hero-book-button" href="#booking">
               Book a session
             </a>
+            <div id="hero-book-sentinel" style={{ height: 1 }} />
           </div>
         </div>
       </section>
@@ -191,6 +298,16 @@ export default async function ProPage({ params, searchParams }: PageProps) {
           </div>
         </section>
       )}
+
+      <section className="profile-trust">
+        <div className="container">
+          <div className="profile-trust-inner">
+            <span><CheckCircle2 size={15} /> Instant confirmation</span>
+            <span><CheckCircle2 size={15} /> Secure payment</span>
+            <span><CheckCircle2 size={15} /> Free cancellation within 24 hrs</span>
+          </div>
+        </div>
+      </section>
 
       <section className="profile-content" id="booking">
         <BookingFlow

@@ -16,8 +16,8 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SessionPro — Your expertise deserves a better front door.",
-  description: "SessionPro gives independent coaches, instructors, and trainers a professional booking page. Clients book and pay in under two minutes. Free to join."
+  title: "SessionPro — Find an instructor",
+  description: "Browse coaches, trainers, and instructors near you. Book a session in minutes.",
 };
 
 export default function RootLayout({

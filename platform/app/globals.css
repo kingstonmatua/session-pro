@@ -600,6 +600,154 @@ h1 {
   padding-inline: 28px;
 }
 
+/* ── Sticky booking bar ──────────────────────────────────── */
+
+.sticky-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: white;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-100%);
+  transition: transform 0.25s ease;
+  pointer-events: none;
+}
+
+.sticky-bar--visible {
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.sticky-bar-inner {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sticky-bar-pro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sticky-bar-photo {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sticky-bar-initials {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--green-light);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sticky-bar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sticky-bar-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sticky-bar-rating {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber);
+}
+
+.sticky-bar-rating-count {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.sticky-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.sticky-bar-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.sticky-bar-per {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.sticky-bar-cta {
+  font-size: 14px;
+  padding: 9px 20px;
+  min-height: unset;
+}
+
+@media (max-width: 540px) {
+  .sticky-bar-price { display: none; }
+  .sticky-bar-rating { display: none; }
+}
+
+/* ── Trust strip ─────────────────────────────────────────── */
+
+.profile-trust {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: white;
+  padding: 14px 0;
+}
+
+.profile-trust-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-mid);
+}
+
+.profile-trust-inner span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-trust-inner svg {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
 .booking-panel {
   position: sticky;
   top: 96px;

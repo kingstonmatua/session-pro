@@ -1,0 +1,512 @@
+/* ============================================================
+   Discover page — client-facing pro directory
+   ============================================================ */
+
+.discover-page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Nav ─────────────────────────────────────────────────── */
+
+.discover-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.discover-nav-inner {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.discover-nav-logo {
+  height: 42px;
+  width: auto;
+  display: block;
+}
+
+.discover-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.discover-nav-pro-link,
+.discover-nav-login {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.discover-nav-pro-link:hover,
+.discover-nav-login:hover {
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.discover-nav-cta {
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--green);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  margin-left: 8px;
+  transition: opacity 0.15s;
+}
+
+.discover-nav-cta:hover {
+  opacity: 0.9;
+}
+
+/* ── Hero ────────────────────────────────────────────────── */
+
+.discover-hero {
+  padding: 64px 20px 48px;
+  text-align: center;
+}
+
+.discover-hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.discover-hero h1 {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 800;
+  color: var(--ink);
+  margin: 0 0 12px;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+.discover-hero p {
+  font-size: 16px;
+  color: var(--ink-soft);
+  margin: 0 0 36px;
+  line-height: 1.6;
+}
+
+/* ── Pill search bar ─────────────────────────────────────── */
+
+.discover-search-bar {
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 60px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border);
+  padding: 0 8px 0 0;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.discover-search-section {
+  flex: 1;
+  padding: 14px 28px;
+  text-align: left;
+  position: relative;
+  cursor: pointer;
+  border-radius: 60px;
+  transition: background 0.15s;
+  min-width: 0;
+}
+
+.discover-search-section:hover {
+  background: #f3f4f6;
+}
+
+.discover-search-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+  pointer-events: none;
+}
+
+.discover-search-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.discover-search-value--empty {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+/* Transparent native select overlaid on top so clicking the section opens it */
+.discover-search-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px; /* prevents iOS zoom */
+}
+
+.discover-search-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.discover-search-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--green);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.discover-search-btn:hover {
+  background: #047857;
+  transform: scale(1.04);
+}
+
+/* ── How it works strip ──────────────────────────────────── */
+
+.hiw-strip {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: white;
+  padding: 32px 20px;
+}
+
+.hiw-strip-inner {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.hiw-strip-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.hiw-strip-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--green-light);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hiw-strip-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+
+.hiw-strip-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .hiw-strip-inner {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+/* ── Results area ────────────────────────────────────────── */
+
+.discover-body {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0 80px;
+  flex: 1;
+}
+
+.discover-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.discover-count {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.discover-clear {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.discover-clear:hover {
+  border-color: var(--ink-mid);
+  color: var(--ink);
+}
+
+/* ── Pro card grid ───────────────────────────────────────── */
+
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.pro-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.pro-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.pro-card__photo-wrap {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--green-light);
+}
+
+.pro-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s;
+}
+
+.pro-card:hover .pro-card__photo {
+  transform: scale(1.03);
+}
+
+.pro-card__photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--green);
+  background: var(--green-light);
+}
+
+.pro-card__body {
+  padding: 16px 18px 18px;
+}
+
+.pro-card__name {
+  font-family: var(--font-jakarta), sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 3px;
+}
+
+.pro-card__discipline {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green);
+  margin: 0 0 10px;
+}
+
+.pro-card__location {
+  font-size: 13px;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+
+.pro-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  min-height: 28px;
+}
+
+.pro-card__rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pro-card__rating-count {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.pro-card__price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+
+.discover-empty {
+  text-align: center;
+  padding: 80px 0;
+}
+
+.discover-empty h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  margin: 0 0 8px;
+}
+
+.discover-empty p {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.discover-clear-inline {
+  background: none;
+  border: none;
+  color: var(--green);
+  font-size: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ── Footer ──────────────────────────────────────────────── */
+
+.discover-footer {
+  border-top: 1px solid var(--border);
+  background: white;
+  padding: 20px 0;
+}
+
+.discover-footer-inner {
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.discover-footer-inner a {
+  color: var(--green);
+  font-weight: 500;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .discover-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .discover-search-bar {
+    flex-direction: column;
+    border-radius: 20px;
+    padding: 0 0 8px;
+    gap: 0;
+  }
+
+  .discover-search-section {
+    width: 100%;
+    border-radius: 20px;
+    padding: 12px 20px;
+  }
+
+  .discover-search-divider {
+    width: calc(100% - 40px);
+    height: 1px;
+    margin: 0 20px;
+  }
+
+  .discover-search-btn {
+    width: calc(100% - 16px);
+    height: 48px;
+    border-radius: 12px;
+    margin: 4px 8px 0;
+  }
+
+  .discover-nav-cta {
+    display: none;
+  }
+
+  .discover-hero {
+    padding: 44px 20px 36px;
+  }
+
+  .discover-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-footer-inner {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
