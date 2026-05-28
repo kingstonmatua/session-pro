@@ -26,16 +26,16 @@ export default function LandingPage() {
           </Link>
 
           <div className="nav__links" role="list">
-            <a href="#how-it-works" role="listitem">How it works</a>
-            <a href="#who-its-for" role="listitem">Who it&rsquo;s for</a>
+            <a href="#how-it-works" role="listitem">How It Works</a>
+            <a href="#who-its-for" role="listitem">Who It&rsquo;s For</a>
             <a href="#features" role="listitem">Features</a>
             <a href="#pricing" role="listitem">Pricing</a>
           </div>
 
           <div className="nav__right">
-            <Link href="/marcusreed">View demo</Link>
-            <Link href="/auth/login">Log in</Link>
-            <Link href="/auth/signup" className="btn-primary">Claim your page</Link>
+            <Link href="/marcusreed">View Demo</Link>
+            <Link href="/auth/signup" className="btn-primary">Claim Your Page</Link>
+            <Link href="/auth/login">Pro Log In</Link>
           </div>
         </div>
       </nav>
@@ -591,7 +591,7 @@ export default function LandingPage() {
                 Create your free page &rarr;
               </Link>
               <p style={{ fontSize: '13px', color: 'var(--ink-soft)', margin: 0 }}>
-                Already have an account? <Link href="/auth/login" style={{ color: 'var(--green)', fontWeight: 500 }}>Log in</Link>
+                Already have an account? <Link href="/auth/login" style={{ color: 'var(--green)', fontWeight: 500 }}>Pro Log In</Link>
               </p>
             </div>
 

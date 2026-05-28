@@ -9,6 +9,8 @@ import type { AvailabilityRule, EnrollmentMode, Service } from "@/types/sessionp
 import type { Metadata } from "next";
 import { StickyBookingBar } from "./StickyBookingBar";
 
+export const dynamic = 'force-dynamic';
+
 const DAY_ORDER = ['mon','tue','wed','thu','fri','sat','sun'];
 const DAY_SHORT: Record<string, string> = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
 
@@ -85,6 +87,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/pro-media/${pro.profile_photo_path}`
     : null;
 
+  const ogImageUrl = photoSrc ?? `${appUrl}/api/og?name=${encodeURIComponent(pro.full_name)}&discipline=${encodeURIComponent(pro.discipline ?? '')}&location=${encodeURIComponent(location)}`;
+  const ogImageWidth = photoSrc ? 900 : 1200;
+  const ogImageHeight = photoSrc ? 675 : 630;
+
   const pageUrl = `${appUrl}/${slug}`;
 
   return {
@@ -97,13 +103,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: pageUrl,
       siteName: 'SessionPro',
       type: 'profile',
-      ...(photoSrc ? { images: [{ url: photoSrc, width: 900, height: 675, alt: pro.full_name }] } : {}),
+      images: [{ url: ogImageUrl, width: ogImageWidth, height: ogImageHeight, alt: pro.full_name }],
     },
     twitter: {
-      card: photoSrc ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title,
       description,
-      ...(photoSrc ? { images: [photoSrc] } : {}),
+      images: [ogImageUrl],
     },
   };
 }
@@ -194,7 +200,7 @@ export default async function ProPage({ params, searchParams }: PageProps) {
             <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo" priority />
           </Link>
           <Link href="/auth/signup" className="button button-primary" style={{ fontSize: 14 }}>
-            Claim your page
+            Claim Your Page
           </Link>
         </div>
       </header>

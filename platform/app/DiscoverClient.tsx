@@ -190,9 +190,9 @@ export function DiscoverClient({ pros }: { pros: ProListing[] }) {
             <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="discover-nav-logo" priority />
           </Link>
           <div className="discover-nav-links">
-            <Link href="/for-pros" className="discover-nav-pro-link">For pros</Link>
-            <Link href="/auth/login" className="discover-nav-login">Log in</Link>
-            <Link href="/auth/signup" className="discover-nav-cta">Claim your page</Link>
+            <Link href="/for-pros" className="discover-nav-pro-link">For Pros</Link>
+            <Link href="/auth/signup" className="discover-nav-cta">Claim Your Page</Link>
+            <Link href="/auth/login" className="discover-nav-login">Pro Log In</Link>
           </div>
         </div>
       </nav>

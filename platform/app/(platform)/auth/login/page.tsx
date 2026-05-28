@@ -37,8 +37,8 @@ export default function LoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <h1>Welcome back</h1>
-        <p>Log in to manage your SessionPro page.</p>
+        <h1>Pro Log In</h1>
+        <p>Log in to manage your SessionPro coaching page.</p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-field">
@@ -86,7 +86,11 @@ export default function LoginPage() {
 
         <p className="auth-footer">
           Don&rsquo;t have an account?{' '}
-          <Link href="/auth/signup">Sign up free</Link>
+          <Link href="/auth/signup">Sign Up Free</Link>
+        </p>
+        <p className="auth-client-note">
+          Looking to book a session?{' '}
+          <Link href="/">Browse instructors →</Link>
         </p>
       </div>
     </div>

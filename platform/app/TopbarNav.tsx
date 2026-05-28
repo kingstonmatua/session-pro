@@ -15,9 +15,9 @@ export function TopbarNav() {
 
   return (
     <nav className="nav-actions" aria-label="Platform navigation">
-      <Link className="button" href="/marcusreed">View demo</Link>
-      <Link className="button" href="/auth/login">Log in</Link>
-      <Link className="button button-primary" href="/auth/signup">Claim your page</Link>
+      <Link className="button" href="/marcusreed">View Demo</Link>
+      <Link className="button button-primary" href="/auth/signup">Claim Your Page</Link>
+      <Link className="button" href="/auth/login">Pro Log In</Link>
     </nav>
   );
 }

@@ -18,6 +18,20 @@ const instrument = Instrument_Sans({
 export const metadata: Metadata = {
   title: "SessionPro — Find an instructor",
   description: "Browse coaches, trainers, and instructors near you. Book a session in minutes.",
+  openGraph: {
+    title: "SessionPro — Find an instructor",
+    description: "Browse coaches, trainers, and instructors near you. Book a session in minutes.",
+    url: "https://sessionpro.io",
+    siteName: "SessionPro",
+    type: "website",
+    images: [{ url: "https://sessionpro.io/api/og", width: 1200, height: 630, alt: "SessionPro" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SessionPro — Find an instructor",
+    description: "Browse coaches, trainers, and instructors near you. Book a session in minutes.",
+    images: ["https://sessionpro.io/api/og"],
+  },
 };
 
 export default function RootLayout({

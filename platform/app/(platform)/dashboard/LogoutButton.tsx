@@ -20,7 +20,7 @@ export function LogoutButton() {
 
   return (
     <button className="button" onClick={handleLogout} style={{ fontSize: 14, minHeight: 38, padding: '0 14px' }}>
-      <LogOut size={15} /> Log out
+      <LogOut size={15} /> Log Out
     </button>
   );
 }
