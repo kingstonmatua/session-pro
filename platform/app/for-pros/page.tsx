@@ -21,9 +21,9 @@ export default function LandingPage() {
            ============================ */}
       <nav className="nav" role="navigation" aria-label="Main navigation">
         <div className="nav__inner">
-          <a href="/for-pros" className="nav__brand" aria-label="SessionPro home">
+          <Link href="/for-pros" className="nav__brand" aria-label="SessionPro home">
             <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo" priority />
-          </a>
+          </Link>
 
           <div className="nav__links" role="list">
             <a href="#how-it-works" role="listitem">How it works</a>

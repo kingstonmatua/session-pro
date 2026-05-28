@@ -187,7 +187,7 @@ export function DiscoverClient({ pros }: { pros: ProListing[] }) {
       <nav className="discover-nav">
         <div className="discover-nav-inner">
           <Link href="/">
-            <img src="/images/logo-nav.png" alt="SessionPro" className="discover-nav-logo" />
+            <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="discover-nav-logo" priority />
           </Link>
           <div className="discover-nav-links">
             <Link href="/for-pros" className="discover-nav-pro-link">For pros</Link>

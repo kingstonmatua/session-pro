@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
 type Props = {
@@ -30,7 +31,7 @@ export function StickyBookingBar({ proName, initials, photoSrc, ratingAverage, r
       <div className="sticky-bar-inner">
         <div className="sticky-bar-pro">
           {photoSrc ? (
-            <img src={photoSrc} alt={proName} className="sticky-bar-photo" />
+            <Image src={photoSrc} alt={proName} width={38} height={38} className="sticky-bar-photo" />
           ) : (
             <div className="sticky-bar-initials">{initials}</div>
           )}
