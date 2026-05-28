@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { DiscoverClient, type ProListing } from './DiscoverClient';
 import './discover.css';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'SessionPro — Find an instructor',
   description: 'Browse coaches, trainers, and instructors near you. Book a session in minutes.',
