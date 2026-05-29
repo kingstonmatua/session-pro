@@ -22,7 +22,8 @@ export default function LandingPage() {
       <nav className="nav" role="navigation" aria-label="Main navigation">
         <div className="nav__inner">
           <Link href="/for-pros" className="nav__brand" aria-label="SessionPro home">
-            <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo" priority />
+            <Image src="/images/logo-nav.png" alt="SessionPro" width={911} height={270} className="nav-logo nav-logo--desktop" priority />
+            <Image src="/images/logo-mobile.png" alt="SessionPro" width={1080} height={1080} className="nav-logo nav-logo--mobile" priority />
           </Link>
 
           <div className="nav__links" role="list">
