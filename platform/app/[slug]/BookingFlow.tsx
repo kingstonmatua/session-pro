@@ -140,6 +140,8 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
     }
   }
 
+  const isPackage = selectedService?.kind === 'package';
+
   const sessionLabel = enrollmentMode
     ? `Session ${enrollmentMode.sessionsUsed + 1} of ${enrollmentMode.sessionsTotal}`
     : null;
@@ -169,9 +171,11 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           >
             {isLoading ? <Loader2 size={15} className="slots-spinner" /> : null}
             {isLoading
-              ? 'Booking…'
+              ? (enrollmentMode ? 'Booking…' : 'Redirecting…')
               : enrollmentMode
               ? 'Book session'
+              : isPackage
+              ? `Buy Package — ${centsToDollars(selectedService!.price_cents)}`
               : `Pay ${centsToDollars(selectedService!.price_cents)}`}
           </button>
         )}
@@ -227,8 +231,12 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
                 <span>02</span>
                 <div>
                   <h2>Packages</h2>
-                  <p>Save when you book multiple lessons up front.</p>
+                  <p>Save when you commit to multiple sessions up front.</p>
                 </div>
+              </div>
+              <div className="package-how-it-works">
+                <strong>How packages work</strong>
+                <span>Buy all sessions now and book session 1 today. {pro.full_name} will send you a link to schedule each remaining session.</span>
               </div>
               <div className="service-grid">
                 {packages.map((service) => {
@@ -268,8 +276,18 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           <div className="section-heading">
             <span>{enrollmentMode ? '02' : '03'}</span>
             <div>
-              <h2>{sessionLabel ? `Book ${sessionLabel}` : 'Select a date and time'}</h2>
-              <p>Pick a date and time at {pro.club_or_business ?? 'the location'}.</p>
+              <h2>
+                {sessionLabel
+                  ? `Book ${sessionLabel}`
+                  : isPackage
+                  ? `Book session 1 of ${selectedService!.session_count}`
+                  : 'Select a date and time'}
+              </h2>
+              <p>
+                {isPackage
+                  ? `Choose when to have your first session. ${pro.full_name} will send you a link to schedule sessions 2–${selectedService!.session_count}.`
+                  : `Pick a date and time at ${pro.club_or_business ?? 'the location'}.`}
+              </p>
             </div>
           </div>
           <BookingCalendar
@@ -299,8 +317,19 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
         </div>
         <div className="summary-row">
           <span>Session</span>
-          <strong>{sessionLabel ?? selectedService?.name ?? '—'}</strong>
+          <strong>
+            {sessionLabel
+              ?? (isPackage && selectedService
+                ? `Session 1 of ${selectedService.session_count}`
+                : selectedService?.name ?? '—')}
+          </strong>
         </div>
+        {isPackage && selectedService && (
+          <div className="summary-row">
+            <span>Per session</span>
+            <strong>{centsToDollars(Math.round(selectedService.price_cents / selectedService.session_count))}</strong>
+          </div>
+        )}
         <div className="summary-row">
           <span>Date</span>
           <strong>{selectedDate ? formatDate(selectedDate) : '—'}</strong>
@@ -320,10 +349,20 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
               <strong>{centsToDollars(selectedService.price_cents)}</strong>
               <div className="summary-total-note">if accepted</div>
             </div>
+          ) : isPackage && selectedService ? (
+            <div style={{ textAlign: 'right' }}>
+              <strong>{centsToDollars(selectedService.price_cents)}</strong>
+              <div className="summary-total-note">{selectedService.session_count} sessions included</div>
+            </div>
           ) : (
             <strong>{enrollmentMode ? 'Included in package' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
           )}
         </div>
+        {isPackage && selectedService && (
+          <p className="fine-print" style={{ marginTop: 8 }}>
+            Sessions 2–{selectedService.session_count} are scheduled separately — {pro.full_name} sends you a booking link after each session.
+          </p>
+        )}
 
         {error && <p className="booking-error">{error}</p>}
 
@@ -374,8 +413,12 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
               disabled={!canCheckout || isLoading}
             >
               {isLoading
-                ? <><Loader2 size={16} className="slots-spinner" /> {enrollmentMode ? 'Booking…' : 'Redirecting to payment…'}</>
-                : enrollmentMode ? 'Book session' : 'Proceed to payment'
+                ? <><Loader2 size={16} className="slots-spinner" /> {enrollmentMode ? 'Booking…' : 'Redirecting…'}</>
+                : enrollmentMode
+                ? 'Book session'
+                : isPackage && selectedService
+                ? `Buy Package — ${centsToDollars(selectedService.price_cents)}`
+                : 'Proceed to payment'
               }
             </button>
             <p className="fine-print">Secure payment via Stripe. Free cancellation 24 hours before session.</p>

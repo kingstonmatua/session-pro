@@ -386,6 +386,28 @@ h1 {
   align-items: start;
 }
 
+.package-how-it-works {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--green-light);
+  border: 1px solid #A7F3D0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.package-how-it-works strong {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.package-how-it-works span {
+  color: var(--ink-mid);
+}
+
 .panel,
 .booking-panel {
   border: 1px solid var(--border);
@@ -1527,6 +1549,30 @@ h1 {
 
 .dashboard-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
+.dashboard-welcome-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-page-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 /* ---- Bookings page ---- */
 .bookings-stats {
   display: grid;
@@ -1620,6 +1666,16 @@ h1 {
   .dashboard-grid { grid-template-columns: 1fr; }
   .onboarding-card { padding: 24px; }
   .auth-card { padding: 28px; }
+
+  .dashboard-page-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-page-actions {
+    width: 100%;
+    flex-shrink: unset;
+  }
 }
 
 /* ---- Existing ---- */

@@ -51,7 +51,7 @@ export default async function BookingsPage() {
       .from('bookings')
       .select('*, clients(full_name, email), services(name, duration_minutes)')
       .eq('pro_id', pro.id)
-      .in('status', ['confirmed', 'pending_payment'])
+      .in('status', ['confirmed', 'pending_payment', 'completed'])
       .order('starts_at', { ascending: true }),
     supabase
       .from('package_enrollments')

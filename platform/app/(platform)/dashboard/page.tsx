@@ -52,8 +52,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     <div className="dashboard-shell">
       <div className="dashboard-inner">
 
-        <div className="dashboard-welcome">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="dashboard-welcome dashboard-card">
+          <div className="dashboard-welcome-row">
             <div>
               <h1>Welcome back, {pro.full_name.split(' ')[0]}</h1>
               <p>Your SessionPro page is {pro.status === 'active' ? 'live and accepting bookings.' : 'currently in draft mode.'}</p>
@@ -79,12 +79,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {/* Profile URL */}
         <div className="dashboard-card" style={{ marginBottom: 16 }}>
           <h3>Your public page</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div className="dashboard-page-row">
             <div className="profile-url-display">
               <ExternalLink size={15} />
               {profileUrl}
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="dashboard-page-actions">
               <Link
                 href={`/${pro.slug}`}
                 target="_blank"

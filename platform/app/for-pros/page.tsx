@@ -616,8 +616,8 @@ export default function LandingPage() {
               <a href="#features">Features</a>
               <a href="#pricing">Pricing</a>
               <a href="mailto:hello@sessionpro.io">Contact</a>
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/terms">Terms</Link>
             </nav>
 
             <span className="footer__copy">&copy; 2026 SessionPro &middot; sessionpro.io</span>
