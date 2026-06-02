@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getIP } from '@/lib/rateLimit';
 
 function parseSlotToISO(dateStr: string, timeSlot: string, timezone: string): string {
   const [time, ampm] = timeSlot.split(' ');
@@ -44,6 +45,10 @@ function parseSlotToISO(dateStr: string, timeSlot: string, timezone: string): st
 }
 
 export async function POST(req: Request) {
+  if (!checkRateLimit(getIP(req), 5, 60)) {
+    return NextResponse.json({ error: 'Too many requests. Please try again shortly.' }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

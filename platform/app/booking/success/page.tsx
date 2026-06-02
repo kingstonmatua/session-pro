@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, Clock, MapPin, User } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, MapPin, Package, User } from 'lucide-react';
 import Link from 'next/link';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -10,6 +10,7 @@ type BookingDetails = {
   dateStr: string;
   timeStr: string;
   location: string | null;
+  packageSessionCount?: number;
 };
 
 async function fetchBookingDetailsByBookingId(bookingId: string): Promise<BookingDetails | null> {
@@ -62,7 +63,7 @@ async function fetchBookingDetails(sessionId: string): Promise<BookingDetails | 
     const [{ data: hold }, { data: pro }, { data: service }] = await Promise.all([
       supabase.from('booking_holds').select('starts_at, ends_at').eq('id', holdId).single(),
       supabase.from('pros').select('full_name, timezone, club_or_business, slug').eq('id', proId).single(),
-      supabase.from('services').select('name, duration_minutes').eq('id', serviceId).single(),
+      supabase.from('services').select('name, duration_minutes, kind, session_count').eq('id', serviceId).single(),
     ]);
 
     if (!hold || !pro || !service) return null;
@@ -94,6 +95,7 @@ async function fetchBookingDetails(sessionId: string): Promise<BookingDetails | 
       dateStr,
       timeStr: `${fmtTime(start)} – ${fmtTime(end)}`,
       location: (pro.club_or_business as string | null) ?? null,
+      packageSessionCount: service.kind === 'package' ? (service.session_count ?? undefined) : undefined,
     };
   } catch {
     return null;
@@ -113,6 +115,7 @@ export default async function BookingSuccessPage({ searchParams }: PageProps) {
     ? await fetchBookingDetailsByBookingId(booking_id)
     : null;
   const backSlug = details?.proSlug ?? proSlug;
+  const isPackage = !!details?.packageSessionCount;
 
   return (
     <main>
@@ -124,8 +127,9 @@ export default async function BookingSuccessPage({ searchParams }: PageProps) {
           />
           <h1>You&rsquo;re booked!</h1>
           <p>
-            Your session is confirmed. Check your email for a receipt and any
-            details from your instructor.
+            {isPackage
+              ? `Session 1 of ${details!.packageSessionCount} is confirmed. Check your email for your receipt.`
+              : 'Your session is confirmed. Check your email for a receipt and any details from your instructor.'}
           </p>
 
           {details && (
@@ -138,7 +142,9 @@ export default async function BookingSuccessPage({ searchParams }: PageProps) {
               <div className="booking-confirm-row">
                 <CalendarDays size={15} className="booking-confirm-row-icon" />
                 <span className="booking-confirm-row-label">Session</span>
-                <span className="booking-confirm-row-value">{details.serviceName}</span>
+                <span className="booking-confirm-row-value">
+                  {isPackage ? `Session 1 of ${details.packageSessionCount}` : details.serviceName}
+                </span>
               </div>
               <div className="booking-confirm-row">
                 <CalendarDays size={15} className="booking-confirm-row-icon" />
@@ -157,6 +163,16 @@ export default async function BookingSuccessPage({ searchParams }: PageProps) {
                   <span className="booking-confirm-row-value">{details.location}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {isPackage && details && (
+            <div className="booking-package-callout">
+              <Package size={16} className="booking-package-callout-icon" />
+              <p>
+                <strong>{details.proName}</strong> will send you a link to schedule each of your remaining{' '}
+                {details.packageSessionCount! - 1} sessions.
+              </p>
             </div>
           )}
 
