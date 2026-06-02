@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 function dollars(cents: number) {

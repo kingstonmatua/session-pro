@@ -48,7 +48,7 @@ export default function PrivacyPage() {
 
               <h2 id="intro">Introduction</h2>
               <p className="legal-placeholder">
-                [Counsel to insert: opening statement identifying SessionPro as the data controller, scope of this policy (who it applies to — Pros and clients), and a brief summary of the company's commitment to privacy.]
+                {`[Counsel to insert: opening statement identifying SessionPro as the data controller, scope of this policy (who it applies to — Pros and clients), and a brief summary of the company's commitment to privacy.]`}
               </p>
 
               <h2 id="collect">Information We Collect</h2>
@@ -68,7 +68,7 @@ export default function PrivacyPage() {
 
               <h2 id="payments">Payment Information</h2>
               <p className="legal-placeholder">
-                [Counsel to insert: clarification that SessionPro does not store full card details — payments are processed by Stripe, Inc. and subject to Stripe's privacy policy. Include link to Stripe's privacy policy.]
+                {`[Counsel to insert: clarification that SessionPro does not store full card details — payments are processed by Stripe, Inc. and subject to Stripe's privacy policy. Include link to Stripe's privacy policy.]`}
               </p>
 
               <h2 id="cookies">Cookies & Tracking Technologies</h2>

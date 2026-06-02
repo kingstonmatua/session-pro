@@ -54,7 +54,7 @@ export default function TermsPage() {
 
               <h2 id="services">2. Our Services</h2>
               <p className="legal-placeholder">
-                [Counsel to insert: description of SessionPro as a marketplace platform connecting independent professionals ("Pros") with clients, clarifying that SessionPro is not a party to the underlying service transaction and does not employ Pros.]
+                {`[Counsel to insert: description of SessionPro as a marketplace platform connecting independent professionals ("Pros") with clients, clarifying that SessionPro is not a party to the underlying service transaction and does not employ Pros.]`}
               </p>
 
               <h2 id="accounts">3. User Accounts</h2>
@@ -84,12 +84,12 @@ export default function TermsPage() {
 
               <h2 id="disclaimers">8. Disclaimer of Warranties</h2>
               <p className="legal-placeholder">
-                [Counsel to insert: standard disclaimer that the platform is provided "as is," no warranty of uptime or accuracy, and that SessionPro does not verify Pro credentials or guarantee quality of sessions.]
+                {`[Counsel to insert: standard disclaimer that the platform is provided "as is," no warranty of uptime or accuracy, and that SessionPro does not verify Pro credentials or guarantee quality of sessions.]`}
               </p>
 
               <h2 id="liability">9. Limitation of Liability</h2>
               <p className="legal-placeholder">
-                [Counsel to insert: cap on SessionPro's liability, exclusion of consequential/indirect damages, and any jurisdictional carve-outs.]
+                {`[Counsel to insert: cap on SessionPro's liability, exclusion of consequential/indirect damages, and any jurisdictional carve-outs.]`}
               </p>
 
               <h2 id="indemnification">10. Indemnification</h2>

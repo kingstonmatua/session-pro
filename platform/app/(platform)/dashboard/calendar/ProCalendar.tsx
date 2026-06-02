@@ -114,7 +114,7 @@ function slotToUTC(dateStr: string, slotLabel: string, tz: string): string {
   return est.toISOString();
 }
 
-export function ProCalendar({ proId: _proId, timezone, bookings, requests, blockedTimes, availabilityRules, durationMinutes, bufferMinutes }: Props) {
+export function ProCalendar({ timezone, bookings, requests, blockedTimes, availabilityRules, durationMinutes, bufferMinutes }: Props) {
   const [view, setView] = useState<View>('month');
   const [currentDate, setCurrentDate] = useState(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<SelectedEvent | null>(null);
