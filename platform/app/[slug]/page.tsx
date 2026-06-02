@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { AvailabilityRule, EnrollmentMode, Service } from "@/types/sessionpro";
 import type { Metadata } from "next";
 import { StickyBookingBar } from "./StickyBookingBar";
+import { SiteFooter } from "@/app/components/SiteFooter";
 
 export const dynamic = 'force-dynamic';
 
@@ -326,6 +327,7 @@ export default async function ProPage({ params, searchParams }: PageProps) {
         />
       </section>
     </main>
+    <SiteFooter />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { SiteFooter } from './components/SiteFooter';
 import { MapPin, Star, Search, CalendarCheck, CircleCheck } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
@@ -301,13 +302,7 @@ export function DiscoverClient({ pros }: { pros: ProListing[] }) {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="discover-footer">
-        <div className="discover-footer-inner">
-          <span>© 2026 SessionPro</span>
-          <Link href="/for-pros">Are you a pro? Create your free page →</Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
