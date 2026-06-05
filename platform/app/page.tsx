@@ -35,6 +35,7 @@ export default async function DiscoverPage() {
         'id, slug, full_name, discipline, location_city, location_region, profile_photo_path, rating_average, rating_count, services(price_cents, kind, is_active)',
       )
       .eq('status', 'active')
+      .eq('marketplace_listed', true)
       .order('rating_count', { ascending: false });
 
     pros = (data ?? []).map((pro) => {

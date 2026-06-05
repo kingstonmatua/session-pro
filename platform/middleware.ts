@@ -30,20 +30,24 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = path.startsWith('/auth');
   const isAdmin = path.startsWith('/admin');
 
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean);
+  const isAdminUser = adminEmails.includes(user?.email ?? '');
+
   if (isProtected && !user) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
+  if (isProtected && user && isAdminUser) {
+    return NextResponse.redirect(new URL('/admin', request.url));
+  }
+
   if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL(isAdminUser ? '/admin' : '/dashboard', request.url));
   }
 
   if (isAdmin) {
     if (!user) return NextResponse.redirect(new URL('/auth/login', request.url));
-    const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean);
-    if (!adminEmails.includes(user.email ?? '')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+    if (!isAdminUser) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return supabaseResponse;

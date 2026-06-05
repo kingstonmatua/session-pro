@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 
 const LINKS = [
   { href: '/admin',          label: 'Overview' },
@@ -12,6 +13,17 @@ const LINKS = [
 
 export function AdminNav() {
   const path = usePathname();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    await supabase.auth.signOut();
+    router.push('/auth/login');
+  }
+
   return (
     <nav className="admin-nav">
       {LINKS.map(({ href, label }) => (
@@ -23,6 +35,7 @@ export function AdminNav() {
           {label}
         </Link>
       ))}
+      <button className="admin-nav-link" onClick={handleSignOut}>Sign Out</button>
     </nav>
   );
 }

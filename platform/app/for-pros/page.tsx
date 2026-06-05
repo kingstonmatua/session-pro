@@ -1,6 +1,26 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarCheck, CreditCard, Bell, Star, Package, Link as LinkIcon } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'For Pros — SessionPro',
+  description: 'Get your own booking page, manage your schedule, and get paid — all in one place.',
+  openGraph: {
+    title: 'For Pros — SessionPro',
+    description: 'Get your own booking page, manage your schedule, and get paid — all in one place.',
+    url: 'https://sessionpro.io/for-pros',
+    siteName: 'SessionPro',
+    type: 'website',
+    images: [{ url: 'https://sessionpro.io/api/og/for-pros', width: 1200, height: 630, alt: 'SessionPro' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'For Pros — SessionPro',
+    description: 'Get your own booking page, manage your schedule, and get paid — all in one place.',
+    images: ['https://sessionpro.io/api/og/for-pros'],
+  },
+};
 
 
 function CheckIcon() {

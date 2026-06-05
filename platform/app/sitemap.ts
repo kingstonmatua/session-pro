@@ -17,7 +17,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data } = await supabase
     .from('pros')
     .select('slug, updated_at')
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .eq('marketplace_listed', true);
 
   const proRoutes: MetadataRoute.Sitemap = (data ?? []).map((pro) => ({
     url: `${appUrl}/${pro.slug}`,

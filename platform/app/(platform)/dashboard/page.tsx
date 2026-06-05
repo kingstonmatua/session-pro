@@ -6,6 +6,7 @@ import { LogoutButton } from './LogoutButton';
 import { ConnectStripeButton } from './ConnectStripeButton';
 import { ShareButtons } from './ShareButtons';
 import { StatusToggle } from './StatusToggle';
+import { MarketplaceToggle } from './MarketplaceToggle';
 import Stripe from 'stripe';
 
 async function getConnectStatus(accountId: string | null): Promise<'not_connected' | 'pending' | 'active'> {
@@ -95,6 +96,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               </Link>
               <ShareButtons url={fullProfileUrl} slug={pro.slug} />
               <StatusToggle status={pro.status as 'active' | 'draft'} />
+              <MarketplaceToggle listed={pro.marketplace_listed ?? true} />
             </div>
           </div>
         </div>

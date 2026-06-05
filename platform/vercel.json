@@ -1,4 +1,5 @@
 {
+  "alias": ["sessionpro.io"],
   "crons": [
     {
       "path": "/api/cron/complete-sessions",
