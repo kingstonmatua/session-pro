@@ -1,12 +1,13 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AvailabilityRule } from '@/types/sessionpro';
 
 type CalBooking = {
   id: string; startsAt: string; endsAt: string; status: string;
   clientName: string; clientEmail: string; serviceName: string;
+  groupSlotId: string | null;
 };
 type CalRequest = {
   id: string; startsAt: string; endsAt: string; status: string;
@@ -14,6 +15,14 @@ type CalRequest = {
 };
 type CalBlocked = {
   id: string; startsAt: string; endsAt: string; label: string | null;
+};
+type CalGroupSlot = {
+  id: string; startsAt: string; endsAt: string;
+  capacity: number; booked: number;
+  serviceId: string; serviceName: string; label: string | null;
+};
+type CalService = {
+  id: string; name: string; duration_minutes: number; buffer_minutes: number;
 };
 
 type Props = {
@@ -25,15 +34,17 @@ type Props = {
   availabilityRules: AvailabilityRule[];
   durationMinutes: number;
   bufferMinutes: number;
+  services: CalService[];
+  groupSlots: CalGroupSlot[];
 };
 
 type View = 'month' | 'week' | 'day';
-type EventKind = 'booking' | 'request' | 'blocked';
-type SelectedEvent = { kind: EventKind; data: CalBooking | CalRequest | CalBlocked };
+type EventKind = 'booking' | 'request' | 'blocked' | 'group';
+type SelectedEvent = { kind: EventKind; data: CalBooking | CalRequest | CalBlocked | CalGroupSlot };
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 6am–9pm
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 6);
 
 const DOW_TO_DAY: Record<number, AvailabilityRule['day']> = {
   0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
@@ -102,7 +113,6 @@ function slotToUTC(dateStr: string, slotLabel: string, tz: string): string {
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
 
-  // Iterate to find the UTC time that corresponds to h:m in the given timezone
   let est = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
   const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
   for (let i = 0; i < 3; i++) {
@@ -114,7 +124,10 @@ function slotToUTC(dateStr: string, slotLabel: string, tz: string): string {
   return est.toISOString();
 }
 
-export function ProCalendar({ timezone, bookings, requests, blockedTimes, availabilityRules, durationMinutes, bufferMinutes }: Props) {
+export function ProCalendar({
+  timezone, bookings, requests, blockedTimes, availabilityRules,
+  durationMinutes, bufferMinutes, services, groupSlots,
+}: Props) {
   const [view, setView] = useState<View>('month');
   const [currentDate, setCurrentDate] = useState(() => startOfDay(new Date()));
   const [selected, setSelected] = useState<SelectedEvent | null>(null);
@@ -122,6 +135,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
   const [localBookings] = useState(bookings);
   const [localRequests, setLocalRequests] = useState(requests);
   const [localBlocked, setLocalBlocked] = useState(blockedTimes);
+  const [localGroupSlots, setLocalGroupSlots] = useState(groupSlots);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [slotLoading, setSlotLoading] = useState<string | null>(null);
@@ -131,6 +145,12 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
   const [rescheduleStart, setRescheduleStart] = useState('');
   const [rescheduleEnd, setRescheduleEnd] = useState('');
   const [rescheduleSaving, setRescheduleSaving] = useState(false);
+  // Group slot form
+  const [groupFormSlot, setGroupFormSlot] = useState<{ label: string; startsAt: string; endsAt: string } | null>(null);
+  const [groupFormServiceId, setGroupFormServiceId] = useState(services[0]?.id ?? '');
+  const [groupFormCapacity, setGroupFormCapacity] = useState(6);
+  const [groupFormLabel, setGroupFormLabel] = useState('');
+  const [groupFormSaving, setGroupFormSaving] = useState(false);
 
   const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
   for (const rule of availabilityRules) ruleByDay.set(rule.day, rule);
@@ -158,8 +178,9 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
 
   // ── Events for a day ────────────────────────────────────────────
   function eventsForDay(day: Date) {
-    const events: { kind: EventKind; data: CalBooking | CalRequest | CalBlocked; time: string }[] = [];
+    const events: { kind: EventKind; data: CalBooking | CalRequest | CalBlocked | CalGroupSlot; time: string }[] = [];
     for (const b of localBookings) {
+      if (b.groupSlotId) continue; // group bookings shown via the group slot event
       const ld = toLocalDate(b.startsAt, timezone);
       if (isSameDay(ld, day)) events.push({ kind: 'booking', data: b, time: fmtTime(b.startsAt, timezone) });
     }
@@ -172,6 +193,10 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
       const ld = toLocalDate(bl.startsAt, timezone);
       if (isSameDay(ld, day)) events.push({ kind: 'blocked', data: bl, time: fmtTime(bl.startsAt, timezone) });
     }
+    for (const gs of localGroupSlots) {
+      const ld = toLocalDate(gs.startsAt, timezone);
+      if (isSameDay(ld, day)) events.push({ kind: 'group', data: gs, time: fmtTime(gs.startsAt, timezone) });
+    }
     return events.sort((a, b) => a.time.localeCompare(b.time));
   }
 
@@ -179,6 +204,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
     setSlotPanelDay(day);
     setSelected(null);
     setShowReschedule(false);
+    setGroupFormSlot(null);
     setActionError('');
   }
 
@@ -216,6 +242,17 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
     setActionLoading(false);
   }
 
+  async function removeGroupSlot(id: string) {
+    setActionLoading(true); setActionError('');
+    try {
+      const res = await fetch(`/api/group-slots/${id}`, { method: 'DELETE' });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? 'Failed to remove'); }
+      setLocalGroupSlots((prev) => prev.filter((gs) => gs.id !== id));
+      setSelected(null);
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
+    setActionLoading(false);
+  }
+
   async function blockSlot(slotLabel: string, startsAt: string, endsAt: string) {
     setSlotLoading(slotLabel); setActionError('');
     try {
@@ -227,10 +264,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
       if (!res.ok) throw new Error('Failed to block slot');
       const { blockedTime } = await res.json();
       setLocalBlocked((prev) => [...prev, {
-        id: blockedTime.id,
-        startsAt: blockedTime.starts_at,
-        endsAt: blockedTime.ends_at,
-        label: blockedTime.label,
+        id: blockedTime.id, startsAt: blockedTime.starts_at, endsAt: blockedTime.ends_at, label: blockedTime.label,
       }]);
     } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setSlotLoading(null);
@@ -244,6 +278,46 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
       setLocalBlocked((prev) => prev.filter((b) => b.id !== id));
     } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
     setSlotLoading(null);
+  }
+
+  async function saveGroupSlot() {
+    if (!groupFormSlot || !groupFormServiceId || groupFormCapacity < 2) return;
+    const svc = services.find(s => s.id === groupFormServiceId);
+    if (!svc) return;
+    const endsAt = new Date(
+      new Date(groupFormSlot.startsAt).getTime() + (svc.duration_minutes + svc.buffer_minutes) * 60_000
+    ).toISOString();
+
+    setGroupFormSaving(true); setActionError('');
+    try {
+      const res = await fetch('/api/group-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: groupFormServiceId,
+          startsAt: groupFormSlot.startsAt,
+          endsAt,
+          capacity: groupFormCapacity,
+          label: groupFormLabel.trim() || null,
+        }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error ?? 'Failed to save'); }
+      const { groupSlot } = await res.json();
+      setLocalGroupSlots((prev) => [...prev, {
+        id: groupSlot.id,
+        startsAt: groupSlot.starts_at,
+        endsAt: groupSlot.ends_at,
+        capacity: groupSlot.capacity,
+        booked: 0,
+        serviceId: groupSlot.service_id,
+        serviceName: svc.name,
+        label: groupSlot.label,
+      }]);
+      setGroupFormSlot(null);
+      setGroupFormLabel('');
+      setGroupFormCapacity(6);
+    } catch (err) { setActionError(err instanceof Error ? err.message : 'Error'); }
+    setGroupFormSaving(false);
   }
 
   async function proposeReschedule(bookingId: string) {
@@ -307,6 +381,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                       setSelected({ kind: ev.kind, data: ev.data });
                       setSlotPanelDay(null);
                       setShowReschedule(false);
+                      setGroupFormSlot(null);
                     }}
                   >
                     {ev.time}{' '}
@@ -314,6 +389,8 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                       ? (ev.data as CalBooking).clientName.split(' ')[0]
                       : ev.kind === 'request'
                       ? `Request: ${(ev.data as CalRequest).clientName.split(' ')[0]}`
+                      : ev.kind === 'group'
+                      ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity})`
                       : (ev.data as CalBlocked).label ?? 'Blocked'}
                   </button>
                 ))}
@@ -358,11 +435,10 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
             </div>
             {days.map((day) => {
               const dayEvents = eventsForDay(day).filter((ev) => {
-                const ld = toLocalDate(
-                  ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt,
-                  timezone
-                );
-                return ld.getHours() === hour;
+                const src = ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt
+                  : ev.kind === 'group' ? (ev.data as CalGroupSlot).startsAt
+                  : (ev.data as CalBooking | CalRequest).startsAt;
+                return toLocalDate(src, timezone).getHours() === hour;
               });
               return (
                 <div key={`${day.toISOString()}-${hour}`} className="cal-hour-cell">
@@ -370,9 +446,12 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                     <button
                       key={j}
                       className={`cal-week-event cal-event-pill--${ev.kind}`}
-                      onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); }}
+                      onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); setGroupFormSlot(null); }}
                     >
-                      {ev.kind === 'booking' ? (ev.data as CalBooking).clientName.split(' ')[0] : ev.kind === 'request' ? 'Request' : 'Blocked'}
+                      {ev.kind === 'booking' ? (ev.data as CalBooking).clientName.split(' ')[0]
+                        : ev.kind === 'request' ? 'Request'
+                        : ev.kind === 'group' ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity})`
+                        : 'Blocked'}
                     </button>
                   ))}
                 </div>
@@ -390,11 +469,10 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
       <div className="cal-day-view-grid">
         {HOURS.map((hour) => {
           const dayEvents = eventsForDay(currentDate).filter((ev) => {
-            const ld = toLocalDate(
-              ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt : (ev.data as CalBooking | CalRequest).startsAt,
-              timezone
-            );
-            return ld.getHours() === hour;
+            const src = ev.kind === 'blocked' ? (ev.data as CalBlocked).startsAt
+              : ev.kind === 'group' ? (ev.data as CalGroupSlot).startsAt
+              : (ev.data as CalBooking | CalRequest).startsAt;
+            return toLocalDate(src, timezone).getHours() === hour;
           });
           return (
             <div key={hour} className="cal-day-view-row">
@@ -406,10 +484,13 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                   <button
                     key={j}
                     className={`cal-week-event cal-event-pill--${ev.kind}`}
-                    onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); }}
+                    onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); setGroupFormSlot(null); }}
                   >
                     {ev.time} ·{' '}
-                    {ev.kind === 'booking' ? (ev.data as CalBooking).serviceName : ev.kind === 'request' ? `Request: ${(ev.data as CalRequest).serviceName}` : (ev.data as CalBlocked).label ?? 'Blocked'}
+                    {ev.kind === 'booking' ? (ev.data as CalBooking).serviceName
+                      : ev.kind === 'request' ? `Request: ${(ev.data as CalRequest).serviceName}`
+                      : ev.kind === 'group' ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity}) · ${(ev.data as CalGroupSlot).serviceName}`
+                      : (ev.data as CalBlocked).label ?? 'Blocked'}
                   </button>
                 ))}
               </div>
@@ -431,7 +512,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
       <div className="cal-detail-panel">
         <div className="cal-detail-header">
           <h3>{dayName}</h3>
-          <button className="cal-close-btn" onClick={() => { setSlotPanelDay(null); setActionError(''); }}>
+          <button className="cal-close-btn" onClick={() => { setSlotPanelDay(null); setGroupFormSlot(null); setActionError(''); }}>
             <X size={18} />
           </button>
         </div>
@@ -441,7 +522,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
         ) : (
           <>
             <p style={{ fontSize: 12, color: 'var(--ink-soft)', margin: '0 0 12px' }}>
-              Click a slot to block it. Click a blocked slot to unblock it.
+              Block slots or convert them to group sessions.
             </p>
             <div className="cal-slot-grid">
               {generateSlots(rule.start_time, rule.end_time, durationMinutes, bufferMinutes).map((slot) => {
@@ -454,16 +535,53 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                   return slotStart < be && slotEnd > bs;
                 });
 
-                const blockedRecord = !isBooked ? localBlocked.find((b) => {
+                const groupRecord = localGroupSlots.find((gs) => {
+                  const gs_start = new Date(gs.startsAt);
+                  return Math.abs(slotStart.getTime() - gs_start.getTime()) < 60_000;
+                });
+
+                const blockedRecord = !isBooked && !groupRecord ? localBlocked.find((b) => {
                   const bs = new Date(b.startsAt), be = new Date(b.endsAt);
                   return slotStart < be && slotEnd > bs;
                 }) : undefined;
+
+                const isGroupFormOpen = groupFormSlot?.startsAt === slotUTC;
 
                 if (isBooked) {
                   return (
                     <div key={slot} className="cal-slot-btn cal-slot-btn--booked">
                       <span>{slot}</span>
                       <span className="cal-slot-tag">Booked</span>
+                    </div>
+                  );
+                }
+
+                if (groupRecord) {
+                  const isFull = groupRecord.booked >= groupRecord.capacity;
+                  return (
+                    <div key={slot} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                      <div className="cal-slot-btn cal-slot-btn--group" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <Users size={11} />
+                          {slot}
+                        </span>
+                        <span className="cal-slot-tag" style={{ color: isFull ? 'var(--amber)' : 'var(--green)' }}>
+                          {groupRecord.booked}/{groupRecord.capacity}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-soft)', padding: '2px 4px 6px' }}>
+                        {groupRecord.serviceName}
+                        {groupRecord.label ? ` · ${groupRecord.label}` : ''}
+                        {groupRecord.booked === 0 && (
+                          <button
+                            onClick={() => { setSlotLoading(groupRecord.id); removeGroupSlot(groupRecord.id).finally(() => setSlotLoading(null)); }}
+                            disabled={slotLoading === groupRecord.id || actionLoading}
+                            style={{ marginLeft: 8, color: 'var(--amber)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0 }}
+                          >
+                            {slotLoading === groupRecord.id ? <Loader2 size={10} className="slots-spinner" /> : '✕ Remove'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 }
@@ -484,17 +602,91 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
                   );
                 }
 
+                // Available slot
                 return (
-                  <button
-                    key={slot}
-                    className="cal-slot-btn cal-slot-btn--available"
-                    onClick={() => blockSlot(slot, slotUTC, slotEnd.toISOString())}
-                    disabled={slotLoading === slot}
-                    title="Click to block"
-                  >
-                    {slotLoading === slot ? <Loader2 size={11} className="slots-spinner" /> : null}
-                    <span>{slot}</span>
-                  </button>
+                  <div key={slot} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <div className="cal-slot-btn cal-slot-btn--available" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{slot}</span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          onClick={() => blockSlot(slot, slotUTC, slotEnd.toISOString())}
+                          disabled={slotLoading === slot}
+                          style={{ fontSize: 11, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--white)', cursor: 'pointer', color: 'var(--ink-soft)' }}
+                        >
+                          {slotLoading === slot ? <Loader2 size={10} className="slots-spinner" /> : 'Block'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setGroupFormSlot(isGroupFormOpen ? null : { label: slot, startsAt: slotUTC, endsAt: slotEnd.toISOString() });
+                            setGroupFormLabel('');
+                            setGroupFormCapacity(6);
+                            setGroupFormServiceId(services[0]?.id ?? '');
+                          }}
+                          style={{ fontSize: 11, padding: '2px 7px', border: '1px solid var(--green)', borderRadius: 4, background: isGroupFormOpen ? 'var(--green)' : 'var(--white)', cursor: 'pointer', color: isGroupFormOpen ? 'var(--white)' : 'var(--green)', display: 'flex', alignItems: 'center', gap: 3 }}
+                        >
+                          <Users size={10} /> Group
+                        </button>
+                      </div>
+                    </div>
+                    {isGroupFormOpen && (
+                      <div style={{ padding: '10px 4px 6px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div className="cal-form-row">
+                          <label style={{ fontSize: 12 }}>Service</label>
+                          <select
+                            className="form-input"
+                            style={{ fontSize: 12, padding: '4px 8px', minHeight: 'unset' }}
+                            value={groupFormServiceId}
+                            onChange={(e) => setGroupFormServiceId(e.target.value)}
+                          >
+                            {services.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="cal-form-row">
+                          <label style={{ fontSize: 12 }}>Capacity (spots)</label>
+                          <input
+                            type="number"
+                            min={2}
+                            max={100}
+                            className="form-input"
+                            style={{ fontSize: 12, padding: '4px 8px', minHeight: 'unset' }}
+                            value={groupFormCapacity}
+                            onChange={(e) => setGroupFormCapacity(parseInt(e.target.value) || 2)}
+                          />
+                        </div>
+                        <div className="cal-form-row">
+                          <label style={{ fontSize: 12 }}>Label (optional)</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Saturday Clinic"
+                            className="form-input"
+                            style={{ fontSize: 12, padding: '4px 8px', minHeight: 'unset' }}
+                            value={groupFormLabel}
+                            onChange={(e) => setGroupFormLabel(e.target.value)}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="button button-primary"
+                            style={{ fontSize: 12, minHeight: 30, padding: '0 12px' }}
+                            onClick={saveGroupSlot}
+                            disabled={groupFormSaving || groupFormCapacity < 2 || !groupFormServiceId}
+                          >
+                            {groupFormSaving ? <Loader2 size={12} className="slots-spinner" /> : null}
+                            Save Group Slot
+                          </button>
+                          <button
+                            className="button"
+                            style={{ fontSize: 12, minHeight: 30, padding: '0 10px' }}
+                            onClick={() => { setGroupFormSlot(null); setActionError(''); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -531,6 +723,15 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
         { label: 'Time', value: `${fmtTime(r.startsAt, timezone)} – ${fmtTime(r.endsAt, timezone)}` },
         { label: 'Status', value: r.status },
       ];
+    } else if (kind === 'group') {
+      const gs = data as CalGroupSlot;
+      title = gs.label ?? gs.serviceName;
+      rows = [
+        { label: 'Service', value: gs.serviceName },
+        { label: 'Date', value: fmtDate(gs.startsAt, timezone) },
+        { label: 'Time', value: `${fmtTime(gs.startsAt, timezone)} – ${fmtTime(gs.endsAt, timezone)}` },
+        { label: 'Spots', value: `${gs.booked} booked / ${gs.capacity} capacity` },
+      ];
     } else {
       const bl = data as CalBlocked;
       title = bl.label ?? 'Blocked time';
@@ -543,7 +744,7 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
     return (
       <div className="cal-detail-panel">
         <div className="cal-detail-header">
-          <h3>{title}</h3>
+          <h3>{kind === 'group' ? <><Users size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />{title}</> : title}</h3>
           <button className="cal-close-btn" onClick={() => { setSelected(null); setShowReschedule(false); setActionError(''); }}>
             <X size={18} />
           </button>
@@ -611,7 +812,16 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
           </div>
         )}
 
-        {kind === 'blocked' && !showReschedule && (
+        {kind === 'group' && (data as CalGroupSlot).booked === 0 && (
+          <div className="cal-detail-actions">
+            <button className="button" onClick={() => removeGroupSlot((data as CalGroupSlot).id)} disabled={actionLoading} style={{ color: 'var(--amber)' }}>
+              {actionLoading ? <Loader2 size={14} className="slots-spinner" /> : null}
+              Remove group slot
+            </button>
+          </div>
+        )}
+
+        {kind === 'blocked' && (
           <div className="cal-detail-actions">
             <button className="button" onClick={() => removeBlocked((data as CalBlocked).id)} disabled={actionLoading} style={{ color: 'var(--amber)' }}>
               {actionLoading ? <Loader2 size={14} className="slots-spinner" /> : null}
@@ -625,7 +835,6 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
 
   return (
     <div className="cal-shell">
-      {/* Toolbar */}
       <div className="cal-toolbar">
         <div className="cal-toolbar-nav">
           <button className="cal-nav-btn" onClick={() => navigate(-1)}><ChevronLeft size={18} /></button>
@@ -648,10 +857,10 @@ export function ProCalendar({ timezone, bookings, requests, blockedTimes, availa
         </div>
       </div>
 
-      {/* Legend */}
       <div className="cal-legend">
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--booking" />Confirmed</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--request" />Pending request</span>
+        <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--group" />Group session</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--blocked" />Blocked</span>
         <span className="cal-legend-item" style={{ color: 'var(--ink-soft)', fontSize: 12 }}>· Click a day to manage slots</span>
       </div>

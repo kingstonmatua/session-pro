@@ -93,6 +93,22 @@ export type RescheduleRequest = {
   created_at: string;
 };
 
+export type GroupSlot = {
+  id: string;
+  pro_id: string;
+  service_id: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number;
+  label: string | null;
+  created_at: string;
+};
+
+export type GroupSlotWithCount = GroupSlot & {
+  booked: number;
+  serviceName: string;
+};
+
 export type PackageEnrollment = {
   id: string;
   pro_id: string;

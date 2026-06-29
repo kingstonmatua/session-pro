@@ -25,11 +25,12 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { holdId, proId, serviceId, requestId } = (session.metadata ?? {}) as {
+  const { holdId, proId, serviceId, requestId, groupSlotId } = (session.metadata ?? {}) as {
     holdId?: string;
     proId?: string;
     serviceId?: string;
     requestId?: string;
+    groupSlotId?: string;
   };
 
   if (!holdId || !proId || !serviceId) {
@@ -108,6 +109,7 @@ export async function POST(req: Request) {
       service_id: serviceId,
       hold_id: holdId,
       enrollment_id: enrollmentId,
+      group_slot_id: groupSlotId ?? null,
       starts_at: hold.starts_at,
       ends_at: hold.ends_at,
       status: 'confirmed',

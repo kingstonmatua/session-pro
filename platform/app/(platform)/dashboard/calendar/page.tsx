@@ -33,10 +33,11 @@ export default async function CalendarPage() {
     { data: blockedTimes },
     { data: availability },
     { data: services },
+    { data: groupSlots },
   ] = await Promise.all([
     admin
       .from('bookings')
-      .select('id, starts_at, ends_at, status, clients(full_name, email), services(name)')
+      .select('id, starts_at, ends_at, status, group_slot_id, clients(full_name, email), services(name)')
       .eq('pro_id', pro.id)
       .in('status', ['confirmed', 'pending_payment'])
       .gte('starts_at', rangeStart)
@@ -64,12 +65,26 @@ export default async function CalendarPage() {
       .eq('is_active', true),
     supabase
       .from('services')
-      .select('duration_minutes, buffer_minutes')
+      .select('id, name, duration_minutes, buffer_minutes')
       .eq('pro_id', pro.id)
       .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .limit(1),
+      .order('sort_order', { ascending: true }),
+    admin
+      .from('group_slots')
+      .select('id, starts_at, ends_at, capacity, service_id, label, services(name)')
+      .eq('pro_id', pro.id)
+      .gte('starts_at', rangeStart)
+      .lte('starts_at', rangeEnd)
+      .order('starts_at', { ascending: true }),
   ]);
+
+  // Count confirmed/pending bookings per group slot
+  const groupBookingCounts = new Map<string, number>();
+  for (const b of bookings ?? []) {
+    if (b.group_slot_id) {
+      groupBookingCounts.set(b.group_slot_id, (groupBookingCounts.get(b.group_slot_id) ?? 0) + 1);
+    }
+  }
 
   return (
     <div className="dashboard-shell">
@@ -92,6 +107,7 @@ export default async function CalendarPage() {
             clientName: (b.clients as unknown as { full_name: string } | null)?.full_name ?? 'Client',
             clientEmail: (b.clients as unknown as { email: string } | null)?.email ?? '',
             serviceName: (b.services as unknown as { name: string } | null)?.name ?? 'Session',
+            groupSlotId: b.group_slot_id ?? null,
           }))}
           requests={(requests ?? []).map((r) => ({
             id: r.id,
@@ -111,6 +127,22 @@ export default async function CalendarPage() {
           availabilityRules={availability ?? []}
           durationMinutes={services?.[0]?.duration_minutes ?? 60}
           bufferMinutes={services?.[0]?.buffer_minutes ?? 0}
+          services={(services ?? []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            duration_minutes: s.duration_minutes,
+            buffer_minutes: s.buffer_minutes,
+          }))}
+          groupSlots={(groupSlots ?? []).map((gs) => ({
+            id: gs.id,
+            startsAt: gs.starts_at,
+            endsAt: gs.ends_at,
+            capacity: gs.capacity,
+            booked: groupBookingCounts.get(gs.id) ?? 0,
+            serviceId: gs.service_id,
+            serviceName: (gs.services as unknown as { name: string } | null)?.name ?? 'Group Session',
+            label: gs.label,
+          }))}
         />
       </div>
     </div>

@@ -15,7 +15,7 @@ export async function GET(
   }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ bookedStartTimes: [] });
+    return NextResponse.json({ bookedStartTimes: [], blockedTimes: [], groupSlots: [] });
   }
 
   const startOfMonth = new Date(Date.UTC(year, month, 1)).toISOString();
@@ -23,10 +23,15 @@ export async function GET(
 
   const supabase = createAdminClient();
 
-  const [{ data: bookings }, { data: holds }, { data: blocked }] = await Promise.all([
+  const [
+    { data: bookings },
+    { data: holds },
+    { data: blocked },
+    { data: groupSlots },
+  ] = await Promise.all([
     supabase
       .from('bookings')
-      .select('starts_at')
+      .select('starts_at, group_slot_id')
       .eq('pro_id', proId)
       .in('status', ['pending_payment', 'confirmed'])
       .gte('starts_at', startOfMonth)
@@ -45,12 +50,56 @@ export async function GET(
       .eq('pro_id', proId)
       .gte('starts_at', startOfMonth)
       .lte('starts_at', endOfMonth),
+    supabase
+      .from('group_slots')
+      .select('id, starts_at, ends_at, capacity, service_id, label, services(name)')
+      .eq('pro_id', proId)
+      .gte('starts_at', startOfMonth)
+      .lte('starts_at', endOfMonth),
   ]);
 
+  // Build lookup sets
+  const groupSlotStartTimes = new Set((groupSlots ?? []).map((gs) => gs.starts_at));
+  const groupSlotById = new Map((groupSlots ?? []).map((gs) => [gs.id, gs]));
+
+  // Count confirmed/pending bookings per group slot
+  const groupBookingCounts = new Map<string, number>();
+  for (const b of bookings ?? []) {
+    if (b.group_slot_id && groupSlotById.has(b.group_slot_id)) {
+      groupBookingCounts.set(b.group_slot_id, (groupBookingCounts.get(b.group_slot_id) ?? 0) + 1);
+    }
+  }
+
+  // Count active holds at group slot start times (they count against group capacity)
+  const holdCountAtGroupTime = new Map<string, number>();
+  for (const h of holds ?? []) {
+    if (groupSlotStartTimes.has(h.starts_at)) {
+      holdCountAtGroupTime.set(h.starts_at, (holdCountAtGroupTime.get(h.starts_at) ?? 0) + 1);
+    }
+  }
+
+  // Build group slot response with live spot counts
+  const groupSlotData = (groupSlots ?? []).map((gs) => {
+    const booked = groupBookingCounts.get(gs.id) ?? 0;
+    const pendingHolds = holdCountAtGroupTime.get(gs.starts_at) ?? 0;
+    return {
+      id: gs.id,
+      startsAt: gs.starts_at,
+      endsAt: gs.ends_at,
+      capacity: gs.capacity,
+      booked: booked + pendingHolds,
+      serviceId: gs.service_id,
+      serviceName: (gs.services as unknown as { name: string } | null)?.name ?? 'Group Session',
+      label: gs.label,
+    };
+  });
+
+  // bookedStartTimes = individual bookings + holds NOT at group slot times
+  // Group slots (even full ones) are handled separately via groupSlotData
   const bookedStartTimes = [
-    ...(bookings ?? []).map((b) => b.starts_at),
-    ...(holds ?? []).map((h) => h.starts_at),
+    ...(bookings ?? []).filter((b) => !b.group_slot_id).map((b) => b.starts_at),
+    ...(holds ?? []).filter((h) => !groupSlotStartTimes.has(h.starts_at)).map((h) => h.starts_at),
   ];
 
-  return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [] });
+  return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [], groupSlots: groupSlotData });
 }

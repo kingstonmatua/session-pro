@@ -15,6 +15,17 @@ const DOW_TO_DAY: Record<number, AvailabilityRule['day']> = {
   0: 'sun', 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat',
 };
 
+type GroupSlotInfo = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  booked: number;
+  serviceId: string;
+  serviceName: string;
+  label: string | null;
+};
+
 function formatTimezone(tz: string): string {
   const now = new Date();
   const long = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'long' })
@@ -78,7 +89,7 @@ type Props = {
   durationMinutes: number;
   bufferMinutes: number;
   onDateSelect: (date: Date | null) => void;
-  onTimeSelect: (time: string | null) => void;
+  onTimeSelect: (time: string | null, groupSlot?: GroupSlotInfo | null) => void;
 };
 
 export function BookingCalendar({ proId, timezone, availability, durationMinutes, bufferMinutes, onDateSelect, onTimeSelect }: Props) {
@@ -91,6 +102,7 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [bookedByDate, setBookedByDate] = useState<Map<string, Set<string>>>(new Map());
   const [blockedRanges, setBlockedRanges] = useState<{ starts_at: string; ends_at: string }[]>([]);
+  const [groupSlotsByDate, setGroupSlotsByDate] = useState<Map<string, GroupSlotInfo[]>>(new Map());
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
@@ -98,7 +110,6 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     ruleByDay.set(rule.day, rule);
   }
 
-  // Skip the initial mount — only reset slot when the service actually changes
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -112,9 +123,15 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     setLoadingSlots(true);
 
     fetch(`/api/availability/${proId}?year=${calYear}&month=${calMonth}`)
-      .then(r => r.ok ? r.json() : { bookedStartTimes: [], blockedTimes: [] })
-      .then(({ bookedStartTimes, blockedTimes }: { bookedStartTimes: string[]; blockedTimes: { starts_at: string; ends_at: string }[] }) => {
+      .then(r => r.ok ? r.json() : { bookedStartTimes: [], blockedTimes: [], groupSlots: [] })
+      .then(({ bookedStartTimes, blockedTimes, groupSlots }: {
+        bookedStartTimes: string[];
+        blockedTimes: { starts_at: string; ends_at: string }[];
+        groupSlots: GroupSlotInfo[];
+      }) => {
         if (cancelled) return;
+
+        // Build booked slots map
         const map = new Map<string, Set<string>>();
         for (const iso of bookedStartTimes) {
           const { dateStr, slotLabel } = utcToProDateSlot(iso, timezone);
@@ -123,6 +140,16 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
         }
         setBookedByDate(map);
         setBlockedRanges(blockedTimes ?? []);
+
+        // Build group slots map by date
+        const gsMap = new Map<string, GroupSlotInfo[]>();
+        for (const gs of groupSlots ?? []) {
+          const { dateStr, slotLabel } = utcToProDateSlot(gs.startsAt, timezone);
+          const enriched = { ...gs, _slotLabel: slotLabel } as GroupSlotInfo & { _slotLabel: string };
+          if (!gsMap.has(dateStr)) gsMap.set(dateStr, []);
+          gsMap.get(dateStr)!.push(enriched);
+        }
+        setGroupSlotsByDate(gsMap);
         setLoadingSlots(false);
       })
       .catch(() => { if (!cancelled) setLoadingSlots(false); });
@@ -194,12 +221,11 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     ? (bookedByDate.get(calDateKey(selectedDate)) ?? new Set<string>())
     : new Set<string>();
 
-  // Build a Set of slot labels that overlap with any blocked time range
+  // Build blocked slots set
   const blockedSlots = new Set<string>();
   if (selectedDate && selectedRule) {
     const dateKey = calDateKey(selectedDate);
     for (const slot of availableSlots) {
-      // Parse slot label back to a date+time to compare against blocked ranges
       const [time, ampm] = slot.split(' ');
       const [h, m] = time.split(':').map(Number);
       let hour = h;
@@ -214,6 +240,18 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
           blockedSlots.add(slot);
           break;
         }
+      }
+    }
+  }
+
+  // Build group slot lookup by slot label for the selected date
+  const groupSlotByLabel = new Map<string, GroupSlotInfo & { _slotLabel: string }>();
+  if (selectedDate) {
+    const dateKey = calDateKey(selectedDate);
+    for (const gs of (groupSlotsByDate.get(dateKey) ?? [])) {
+      const gsWithLabel = gs as GroupSlotInfo & { _slotLabel: string };
+      if (gsWithLabel._slotLabel) {
+        groupSlotByLabel.set(gsWithLabel._slotLabel, gsWithLabel);
       }
     }
   }
@@ -260,13 +298,37 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
           ) : (
             <div className="slots-grid">
               {availableSlots.map(slot => {
-                const isUnavailable = bookedSlots.has(slot) || blockedSlots.has(slot);
+                const groupSlot = groupSlotByLabel.get(slot);
+                const isFull = groupSlot ? groupSlot.booked >= groupSlot.capacity : false;
+                const isUnavailable = bookedSlots.has(slot) || blockedSlots.has(slot) || isFull;
                 const isSelected = slot === selectedSlot;
+
+                if (groupSlot && !isFull) {
+                  const spotsLeft = groupSlot.capacity - groupSlot.booked;
+                  return (
+                    <button
+                      key={slot}
+                      type="button"
+                      className={`slot-btn slot-group${isSelected ? ' slot-selected' : ''}`}
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        onTimeSelect(slot, groupSlot);
+                      }}
+                    >
+                      <div style={{ fontWeight: 600 }}>{slot}</div>
+                      <div style={{ fontSize: 11, marginTop: 2, opacity: 0.85 }}>
+                        {spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left
+                      </div>
+                    </button>
+                  );
+                }
+
                 const cls = [
                   'slot-btn',
                   isUnavailable ? 'slot-booked' : '',
                   isSelected ? 'slot-selected' : '',
                 ].filter(Boolean).join(' ');
+
                 return (
                   <button
                     key={slot}
@@ -276,7 +338,7 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
                     onClick={() => {
                       if (!isUnavailable) {
                         setSelectedSlot(slot);
-                        onTimeSelect(slot);
+                        onTimeSelect(slot, null);
                       }
                     }}
                   >

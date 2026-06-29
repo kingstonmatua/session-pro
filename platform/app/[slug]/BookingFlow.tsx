@@ -6,6 +6,14 @@ import { BookingCalendar } from './BookingCalendar';
 import { centsToDollars, formatAvailability } from '@/lib/profiles';
 import type { AvailabilityRule, EnrollmentMode, Pro, Service } from '@/types/sessionpro';
 
+type SelectedGroupSlot = {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  capacity: number;
+  booked: number;
+};
+
 type Props = {
   pro: Pro;
   services: Service[];
@@ -31,6 +39,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
   );
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedGroupSlot, setSelectedGroupSlot] = useState<SelectedGroupSlot | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +57,12 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
   function handleDateSelect(date: Date | null) {
     setSelectedDate(date);
     setSelectedTime(null);
+    setSelectedGroupSlot(null);
+  }
+
+  function handleTimeSelect(time: string | null, groupSlot?: SelectedGroupSlot | null) {
+    setSelectedTime(time);
+    setSelectedGroupSlot(groupSlot ?? null);
   }
 
   const dateStr = selectedDate ? [
@@ -121,9 +136,10 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           proId: pro.id,
-          serviceId: selectedService!.id,
+          serviceId: selectedGroupSlot?.serviceId ?? selectedService!.id,
           date: dateStr,
           timeSlot: selectedTime,
+          ...(selectedGroupSlot ? { groupSlotId: selectedGroupSlot.id } : {}),
         }),
       });
 
@@ -294,10 +310,10 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
             proId={pro.id}
             timezone={pro.timezone}
             availability={availability}
-            durationMinutes={selectedService?.duration_minutes ?? 60}
-            bufferMinutes={selectedService?.buffer_minutes ?? 15}
+            durationMinutes={selectedGroupSlot ? 60 : (selectedService?.duration_minutes ?? 60)}
+            bufferMinutes={selectedGroupSlot ? 0 : (selectedService?.buffer_minutes ?? 15)}
             onDateSelect={handleDateSelect}
-            onTimeSelect={setSelectedTime}
+            onTimeSelect={handleTimeSelect}
           />
         </section>
       </div>
@@ -319,11 +335,18 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           <span>Session</span>
           <strong>
             {sessionLabel
+              ?? selectedGroupSlot?.serviceName
               ?? (isPackage && selectedService
                 ? `Session 1 of ${selectedService.session_count}`
                 : selectedService?.name ?? '—')}
           </strong>
         </div>
+        {selectedGroupSlot && (
+          <div className="summary-row">
+            <span>Type</span>
+            <strong>Group · {selectedGroupSlot.capacity - selectedGroupSlot.booked} spot{selectedGroupSlot.capacity - selectedGroupSlot.booked !== 1 ? 's' : ''} left</strong>
+          </div>
+        )}
         {isPackage && selectedService && (
           <div className="summary-row">
             <span>Per session</span>

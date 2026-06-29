@@ -54,11 +54,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { proId, serviceId, date, timeSlot } = body as {
+  const { proId, serviceId, date, timeSlot, groupSlotId } = body as {
     proId?: string;
     serviceId?: string;
     date?: string;
     timeSlot?: string;
+    groupSlotId?: string;
   };
 
   if (!proId || !serviceId || !date || !timeSlot) {
@@ -88,27 +89,68 @@ export async function POST(req: Request) {
     new Date(startsAt).getTime() + (service.duration_minutes + service.buffer_minutes) * 60_000,
   ).toISOString();
 
-  // Check for conflicts (active holds or confirmed bookings on this slot)
-  const [{ count: bookingConflicts }, { count: holdConflicts }] = await Promise.all([
-    supabase
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
+  if (groupSlotId) {
+    // Group booking: check capacity against existing bookings + active holds for this slot
+    const { data: groupSlot } = await supabase
+      .from('group_slots')
+      .select('id, capacity, starts_at, service_id')
+      .eq('id', groupSlotId)
       .eq('pro_id', proId)
-      .in('status', ['pending_payment', 'confirmed'])
-      .lt('starts_at', endsAt)
-      .gt('ends_at', startsAt),
-    supabase
-      .from('booking_holds')
-      .select('id', { count: 'exact', head: true })
-      .eq('pro_id', proId)
-      .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
-      .lt('starts_at', endsAt)
-      .gt('ends_at', startsAt),
-  ]);
+      .single();
 
-  if ((bookingConflicts ?? 0) > 0 || (holdConflicts ?? 0) > 0) {
-    return NextResponse.json({ error: 'This time slot is no longer available.' }, { status: 409 });
+    if (!groupSlot) {
+      return NextResponse.json({ error: 'Group slot not found.' }, { status: 404 });
+    }
+
+    const [{ count: groupBookings }, { count: activeHolds }] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('group_slot_id', groupSlotId)
+        .in('status', ['pending_payment', 'confirmed']),
+      supabase
+        .from('booking_holds')
+        .select('id', { count: 'exact', head: true })
+        .eq('pro_id', proId)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .eq('starts_at', groupSlot.starts_at),
+    ]);
+
+    if ((groupBookings ?? 0) + (activeHolds ?? 0) >= groupSlot.capacity) {
+      return NextResponse.json({ error: 'This group session is full.' }, { status: 409 });
+    }
+  } else {
+    // Individual booking: reject if slot overlaps a group slot or any existing booking/hold
+    const [{ count: groupSlotConflict }, { count: bookingConflicts }, { count: holdConflicts }] = await Promise.all([
+      supabase
+        .from('group_slots')
+        .select('id', { count: 'exact', head: true })
+        .eq('pro_id', proId)
+        .eq('starts_at', startsAt),
+      supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('pro_id', proId)
+        .in('status', ['pending_payment', 'confirmed'])
+        .lt('starts_at', endsAt)
+        .gt('ends_at', startsAt),
+      supabase
+        .from('booking_holds')
+        .select('id', { count: 'exact', head: true })
+        .eq('pro_id', proId)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .lt('starts_at', endsAt)
+        .gt('ends_at', startsAt),
+    ]);
+
+    if ((groupSlotConflict ?? 0) > 0) {
+      return NextResponse.json({ error: 'This slot is reserved for a group session.' }, { status: 409 });
+    }
+    if ((bookingConflicts ?? 0) > 0 || (holdConflicts ?? 0) > 0) {
+      return NextResponse.json({ error: 'This time slot is no longer available.' }, { status: 409 });
+    }
   }
 
   // Create 15-minute booking hold
@@ -159,7 +201,7 @@ export async function POST(req: Request) {
         },
         quantity: 1,
       }],
-      metadata: { holdId: hold.id, proId, serviceId, proSlug: pro.slug },
+      metadata: { holdId: hold.id, proId, serviceId, proSlug: pro.slug, ...(groupSlotId ? { groupSlotId } : {}) },
       success_url: `${origin}/booking/success?proSlug=${pro.slug}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/${pro.slug}`,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,

@@ -1076,6 +1076,13 @@ h1 {
   opacity: 0.55;
 }
 
+.slot-group {
+  border-color: #c7d2fe !important;
+  background: #eef2ff !important;
+  color: #4f46e5 !important;
+  line-height: 1.2;
+}
+
 .edit-page-header {
   display: flex;
   align-items: center;
@@ -1491,6 +1498,7 @@ h1 {
 }
 
 .dashboard-inner { max-width: 960px; margin: 0 auto; }
+.dashboard-inner:has(.cal-shell) { max-width: 1200px; }
 
 .dashboard-welcome { margin-bottom: 28px; }
 .dashboard-welcome h1 { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
@@ -2608,6 +2616,7 @@ h1 {
 
 .cal-legend-dot--booking { background: var(--green); }
 .cal-legend-dot--request { background: var(--amber); }
+.cal-legend-dot--group { background: #6366f1; }
 .cal-legend-dot--blocked { background: #9ca3af; }
 
 .cal-block-form {
@@ -2650,7 +2659,8 @@ h1 {
 }
 
 .cal-day-cell {
-  min-height: 110px;
+  height: 110px;
+  overflow: hidden;
   padding: 6px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -2659,7 +2669,7 @@ h1 {
 
 .cal-day-cell--empty {
   background: var(--bg);
-  min-height: 110px;
+  height: 110px;
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
@@ -2691,6 +2701,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden;
 }
 
 .cal-event-pill {
@@ -2724,6 +2735,11 @@ h1 {
 .cal-event-pill--blocked {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+.cal-event-pill--group {
+  background: #eef2ff;
+  color: #6366f1;
 }
 
 .cal-event-more {
@@ -2831,6 +2847,7 @@ h1 {
 /* Detail sidebar */
 .cal-detail-sidebar {
   border-left: 1px solid var(--border);
+  overflow-y: auto;
 }
 
 .cal-detail-panel {
@@ -2975,9 +2992,102 @@ h1 {
   cursor: default;
 }
 
+.cal-slot-btn--group {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: var(--ink);
+  cursor: default;
+}
+
 .cal-slot-tag {
   font-size: 11px;
   font-weight: 600;
   color: var(--ink-soft);
   flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  /* Toolbar — fix Today button getting cut off */
+  .cal-toolbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .cal-toolbar-nav {
+    gap: 5px;
+  }
+
+  .cal-nav-title {
+    font-size: 13px;
+    min-width: 120px;
+  }
+
+  .cal-view-tab {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+
+  /* Legend — tighter */
+  .cal-legend {
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+
+  /* Month grid — shorter, less padding */
+  .cal-month-header {
+    padding: 5px 2px;
+    font-size: 10px;
+    letter-spacing: 0;
+  }
+
+  .cal-day-cell {
+    height: 68px;
+    padding: 4px 3px;
+  }
+
+  .cal-day-cell--empty {
+    height: 68px;
+  }
+
+  .cal-day-number {
+    font-size: 12px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    margin-bottom: 2px;
+  }
+
+  /* Event pills → colour dots on mobile (no room for text) */
+  .cal-day-events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .cal-day-events .cal-event-pill {
+    width: 7px;
+    height: 7px;
+    min-width: 7px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 0;
+    overflow: hidden;
+  }
+
+  .cal-event-more {
+    font-size: 9px;
+    line-height: 1.2;
+    align-self: center;
+  }
+
+  /* Sidebar stacks below calendar on mobile instead of side-by-side */
+  .cal-body:has(.cal-detail-sidebar) {
+    grid-template-columns: 1fr;
+  }
+
+  .cal-detail-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
 }
