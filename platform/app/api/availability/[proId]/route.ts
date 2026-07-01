@@ -23,9 +23,12 @@ export async function GET(
 
   const supabase = createAdminClient();
 
+  const now = new Date().toISOString();
+
   const [
     { data: bookings },
     { data: holds },
+    { data: acceptedRequests },
     { data: blocked },
     { data: groupSlots },
   ] = await Promise.all([
@@ -41,9 +44,17 @@ export async function GET(
       .select('starts_at')
       .eq('pro_id', proId)
       .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', now)
       .gte('starts_at', startOfMonth)
       .lte('starts_at', endOfMonth),
+    supabase
+      .from('booking_requests')
+      .select('requested_starts_at')
+      .eq('pro_id', proId)
+      .eq('status', 'accepted')
+      .gt('payment_expires_at', now)
+      .gte('requested_starts_at', startOfMonth)
+      .lte('requested_starts_at', endOfMonth),
     supabase
       .from('blocked_times')
       .select('starts_at, ends_at')
@@ -94,11 +105,12 @@ export async function GET(
     };
   });
 
-  // bookedStartTimes = individual bookings + holds NOT at group slot times
+  // bookedStartTimes = individual bookings + active holds + accepted-but-unpaid requests
   // Group slots (even full ones) are handled separately via groupSlotData
   const bookedStartTimes = [
     ...(bookings ?? []).filter((b) => !b.group_slot_id).map((b) => b.starts_at),
     ...(holds ?? []).filter((h) => !groupSlotStartTimes.has(h.starts_at)).map((h) => h.starts_at),
+    ...(acceptedRequests ?? []).map((r) => r.requested_starts_at),
   ];
 
   return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [], groupSlots: groupSlotData });
