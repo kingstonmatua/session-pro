@@ -370,7 +370,7 @@ export async function sendBookingRequestToPro(params: BookingRequestToProParams)
           </table>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
             <tr><td align="center">
-              <a href="${appUrl}/dashboard/calendar" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+              <a href="${appUrl}/dashboard/bookings" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
                 Review request
               </a>
             </td></tr>
