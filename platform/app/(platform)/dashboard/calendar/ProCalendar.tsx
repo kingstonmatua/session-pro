@@ -39,7 +39,7 @@ type Props = {
 };
 
 type View = 'month' | 'week' | 'day';
-type EventKind = 'booking' | 'request' | 'blocked' | 'group';
+type EventKind = 'booking' | 'request' | 'accepted-request' | 'blocked' | 'group';
 type SelectedEvent = { kind: EventKind; data: CalBooking | CalRequest | CalBlocked | CalGroupSlot };
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -185,9 +185,13 @@ export function ProCalendar({
       if (isSameDay(ld, day)) events.push({ kind: 'booking', data: b, time: fmtTime(b.startsAt, timezone) });
     }
     for (const r of localRequests) {
-      if (r.status !== 'pending') continue;
+      if (r.status !== 'pending' && r.status !== 'accepted') continue;
       const ld = toLocalDate(r.startsAt, timezone);
-      if (isSameDay(ld, day)) events.push({ kind: 'request', data: r, time: fmtTime(r.startsAt, timezone) });
+      if (isSameDay(ld, day)) events.push({
+        kind: r.status === 'accepted' ? 'accepted-request' : 'request',
+        data: r,
+        time: fmtTime(r.startsAt, timezone),
+      });
     }
     for (const bl of localBlocked) {
       const ld = toLocalDate(bl.startsAt, timezone);
@@ -389,6 +393,8 @@ export function ProCalendar({
                       ? (ev.data as CalBooking).clientName.split(' ')[0]
                       : ev.kind === 'request'
                       ? `Request: ${(ev.data as CalRequest).clientName.split(' ')[0]}`
+                      : ev.kind === 'accepted-request'
+                      ? `Awaiting payment: ${(ev.data as CalRequest).clientName.split(' ')[0]}`
                       : ev.kind === 'group'
                       ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity})`
                       : (ev.data as CalBlocked).label ?? 'Blocked'}
@@ -450,6 +456,7 @@ export function ProCalendar({
                     >
                       {ev.kind === 'booking' ? (ev.data as CalBooking).clientName.split(' ')[0]
                         : ev.kind === 'request' ? 'Request'
+                        : ev.kind === 'accepted-request' ? 'Awaiting payment'
                         : ev.kind === 'group' ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity})`
                         : 'Blocked'}
                     </button>
@@ -489,6 +496,7 @@ export function ProCalendar({
                     {ev.time} ·{' '}
                     {ev.kind === 'booking' ? (ev.data as CalBooking).serviceName
                       : ev.kind === 'request' ? `Request: ${(ev.data as CalRequest).serviceName}`
+                      : ev.kind === 'accepted-request' ? `Awaiting payment: ${(ev.data as CalRequest).serviceName}`
                       : ev.kind === 'group' ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity}) · ${(ev.data as CalGroupSlot).serviceName}`
                       : (ev.data as CalBlocked).label ?? 'Blocked'}
                   </button>
@@ -535,12 +543,18 @@ export function ProCalendar({
                   return slotStart < be && slotEnd > bs;
                 });
 
+                const isAwaitingPayment = !isBooked && localRequests.some((r) => {
+                  if (r.status !== 'accepted') return false;
+                  const rs = new Date(r.startsAt), re = new Date(r.endsAt);
+                  return slotStart < re && slotEnd > rs;
+                });
+
                 const groupRecord = localGroupSlots.find((gs) => {
                   const gs_start = new Date(gs.startsAt);
                   return Math.abs(slotStart.getTime() - gs_start.getTime()) < 60_000;
                 });
 
-                const blockedRecord = !isBooked && !groupRecord ? localBlocked.find((b) => {
+                const blockedRecord = !isBooked && !isAwaitingPayment && !groupRecord ? localBlocked.find((b) => {
                   const bs = new Date(b.startsAt), be = new Date(b.endsAt);
                   return slotStart < be && slotEnd > bs;
                 }) : undefined;
@@ -552,6 +566,15 @@ export function ProCalendar({
                     <div key={slot} className="cal-slot-btn cal-slot-btn--booked">
                       <span>{slot}</span>
                       <span className="cal-slot-tag">Booked</span>
+                    </div>
+                  );
+                }
+
+                if (isAwaitingPayment) {
+                  return (
+                    <div key={slot} className="cal-slot-btn cal-slot-btn--awaiting">
+                      <span>{slot}</span>
+                      <span className="cal-slot-tag">Awaiting payment</span>
                     </div>
                   );
                 }
@@ -723,6 +746,15 @@ export function ProCalendar({
         { label: 'Time', value: `${fmtTime(r.startsAt, timezone)} – ${fmtTime(r.endsAt, timezone)}` },
         { label: 'Status', value: r.status },
       ];
+    } else if (kind === 'accepted-request') {
+      const r = data as CalRequest;
+      title = `Awaiting payment: ${r.serviceName}`;
+      rows = [
+        { label: 'Client', value: `${r.clientName} (${r.clientEmail})` },
+        { label: 'Date', value: fmtDate(r.startsAt, timezone) },
+        { label: 'Time', value: `${fmtTime(r.startsAt, timezone)} – ${fmtTime(r.endsAt, timezone)}` },
+        { label: 'Status', value: 'Payment link sent' },
+      ];
     } else if (kind === 'group') {
       const gs = data as CalGroupSlot;
       title = gs.label ?? gs.serviceName;
@@ -860,6 +892,7 @@ export function ProCalendar({
       <div className="cal-legend">
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--booking" />Confirmed</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--request" />Pending request</span>
+        <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--accepted-request" />Awaiting payment</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--group" />Group session</span>
         <span className="cal-legend-item"><span className="cal-legend-dot cal-legend-dot--blocked" />Blocked</span>
         <span className="cal-legend-item" style={{ color: 'var(--ink-soft)', fontSize: 12 }}>· Click a day to manage slots</span>

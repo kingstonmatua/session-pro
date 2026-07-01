@@ -2616,6 +2616,7 @@ h1 {
 
 .cal-legend-dot--booking { background: var(--green); }
 .cal-legend-dot--request { background: var(--amber); }
+.cal-legend-dot--accepted-request { background: #3b82f6; }
 .cal-legend-dot--group { background: #6366f1; }
 .cal-legend-dot--blocked { background: #9ca3af; }
 
@@ -2735,6 +2736,11 @@ h1 {
 .cal-event-pill--blocked {
   background: #f3f4f6;
   color: #6b7280;
+}
+
+.cal-event-pill--accepted-request {
+  background: #eff6ff;
+  color: #3b82f6;
 }
 
 .cal-event-pill--group {
@@ -2989,6 +2995,13 @@ h1 {
   background: var(--surface-alt, #f5f5f5);
   border: 1px solid var(--border);
   color: var(--ink-soft);
+  cursor: default;
+}
+
+.cal-slot-btn--awaiting {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #3b82f6;
   cursor: default;
 }
 
