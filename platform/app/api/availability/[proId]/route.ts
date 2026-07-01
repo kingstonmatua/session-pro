@@ -28,6 +28,7 @@ export async function GET(
   const [
     { data: bookings },
     { data: holds },
+    { data: pendingRequests },
     { data: acceptedRequests },
     { data: blocked },
     { data: groupSlots },
@@ -47,6 +48,16 @@ export async function GET(
       .gt('expires_at', now)
       .gte('starts_at', startOfMonth)
       .lte('starts_at', endOfMonth),
+    // Pending requests block the slot until the pro responds or the slot passes
+    supabase
+      .from('booking_requests')
+      .select('requested_starts_at')
+      .eq('pro_id', proId)
+      .eq('status', 'pending')
+      .gt('requested_starts_at', now)
+      .gte('requested_starts_at', startOfMonth)
+      .lte('requested_starts_at', endOfMonth),
+    // Accepted requests block the slot until payment is received or the payment window expires
     supabase
       .from('booking_requests')
       .select('requested_starts_at')
@@ -105,11 +116,12 @@ export async function GET(
     };
   });
 
-  // bookedStartTimes = individual bookings + active holds + accepted-but-unpaid requests
+  // bookedStartTimes = individual bookings + active holds + pending requests + accepted-but-unpaid requests
   // Group slots (even full ones) are handled separately via groupSlotData
   const bookedStartTimes = [
     ...(bookings ?? []).filter((b) => !b.group_slot_id).map((b) => b.starts_at),
     ...(holds ?? []).filter((h) => !groupSlotStartTimes.has(h.starts_at)).map((h) => h.starts_at),
+    ...(pendingRequests ?? []).map((r) => r.requested_starts_at),
     ...(acceptedRequests ?? []).map((r) => r.requested_starts_at),
   ];
 

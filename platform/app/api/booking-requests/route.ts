@@ -78,7 +78,8 @@ export async function POST(req: Request) {
   ).toISOString();
 
   // Conflict check
-  const [{ count: bookingConflicts }, { count: holdConflicts }] = await Promise.all([
+  const now = new Date().toISOString();
+  const [{ count: bookingConflicts }, { count: holdConflicts }, { count: requestConflicts }] = await Promise.all([
     supabase
       .from('bookings')
       .select('id', { count: 'exact', head: true })
@@ -91,12 +92,20 @@ export async function POST(req: Request) {
       .select('id', { count: 'exact', head: true })
       .eq('pro_id', proId)
       .eq('status', 'active')
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', now)
       .lt('starts_at', endsAt)
       .gt('ends_at', startsAt),
+    supabase
+      .from('booking_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('pro_id', proId)
+      .eq('status', 'pending')
+      .gt('requested_starts_at', now)
+      .lt('requested_starts_at', endsAt)
+      .gt('requested_ends_at', startsAt),
   ]);
 
-  if ((bookingConflicts ?? 0) > 0 || (holdConflicts ?? 0) > 0) {
+  if ((bookingConflicts ?? 0) > 0 || (holdConflicts ?? 0) > 0 || (requestConflicts ?? 0) > 0) {
     return NextResponse.json({ error: 'This time slot is no longer available.' }, { status: 409 });
   }
 
