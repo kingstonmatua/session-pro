@@ -515,6 +515,7 @@ export function ProCalendar({
     const dayStr = dateToStr(slotPanelDay);
     const rule = ruleByDay.get(DOW_TO_DAY[slotPanelDay.getDay()]);
     const dayName = slotPanelDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const dayEvents = eventsForDay(slotPanelDay);
 
     return (
       <div className="cal-detail-panel">
@@ -524,6 +525,29 @@ export function ProCalendar({
             <X size={18} />
           </button>
         </div>
+
+        {dayEvents.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+            {dayEvents.map((ev, j) => (
+              <button
+                key={j}
+                className={`cal-week-event cal-event-pill--${ev.kind}`}
+                onClick={() => { setSelected({ kind: ev.kind, data: ev.data }); setSlotPanelDay(null); setShowReschedule(false); setGroupFormSlot(null); }}
+              >
+                {ev.time}{' '}
+                {ev.kind === 'booking'
+                  ? `${(ev.data as CalBooking).clientName} · ${(ev.data as CalBooking).serviceName}`
+                  : ev.kind === 'request'
+                  ? `Request: ${(ev.data as CalRequest).clientName}`
+                  : ev.kind === 'accepted-request'
+                  ? `Awaiting payment: ${(ev.data as CalRequest).clientName}`
+                  : ev.kind === 'group'
+                  ? `Group (${(ev.data as CalGroupSlot).booked}/${(ev.data as CalGroupSlot).capacity}) · ${(ev.data as CalGroupSlot).serviceName}`
+                  : (ev.data as CalBlocked).label ?? 'Blocked'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {!rule ? (
           <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0 }}>No availability set for this day.</p>
