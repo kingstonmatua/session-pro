@@ -338,6 +338,7 @@ type BookingRequestToProParams = {
   serviceName: string;
   requestedStartsAt: string;
   timezone: string;
+  requestId: string;
 };
 
 export async function sendBookingRequestToPro(params: BookingRequestToProParams) {
@@ -345,6 +346,7 @@ export async function sendBookingRequestToPro(params: BookingRequestToProParams)
   if (!resend) return;
   const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const reviewUrl = `${appUrl}/dashboard/bookings#request-${params.requestId}`;
   const html = `
 <!DOCTYPE html><html><head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -370,7 +372,7 @@ export async function sendBookingRequestToPro(params: BookingRequestToProParams)
           </table>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
             <tr><td align="center">
-              <a href="${appUrl}/dashboard/bookings" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+              <a href="${reviewUrl}" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
                 Review request
               </a>
             </td></tr>

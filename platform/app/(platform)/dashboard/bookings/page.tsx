@@ -94,7 +94,7 @@ export default async function BookingsPage() {
                 const service = req.services as unknown as { name: string } | null;
                 const { date, time } = formatBookingTime(req.requested_starts_at, pro.timezone);
                 return (
-                  <div key={req.id} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
+                  <div key={req.id} id={`request-${req.id}`} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
                     <span>
                       <strong style={{ fontSize: 14 }}>{date}</strong>
                       <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>

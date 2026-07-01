@@ -139,6 +139,7 @@ export async function POST(req: Request) {
         serviceName: service.name,
         requestedStartsAt: startsAt,
         timezone: pro.timezone,
+        requestId: request.id,
       });
     }
   }
