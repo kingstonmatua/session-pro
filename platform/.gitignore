@@ -1,3 +1,4 @@
 .vercel
 tsconfig.tsbuildinfo
 CLAUDE_CONTEXT.md
+.env*
