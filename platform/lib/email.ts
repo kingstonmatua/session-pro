@@ -194,6 +194,7 @@ type CancellationEmailParams = {
   serviceName: string;
   startsAt: string;
   timezone: string;
+  reason?: string;
 };
 
 export async function sendCancellationEmail(params: CancellationEmailParams) {
@@ -229,6 +230,7 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
                 ${row('Date', dateStr)}
                 ${row('Time', timeStr)}
                 ${row('Refund', 'Full refund issued')}
+                ${params.reason ? row('Reason', params.reason) : ''}
               </td></tr>
             </table>
 
@@ -255,6 +257,77 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
     html,
   });
   if (error) console.error('[email] cancellation failed:', error);
+}
+
+type NoShowNotificationParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  startsAt: string;
+  timezone: string;
+  refunded: boolean;
+};
+
+export async function sendNoShowNotification(params: NoShowNotificationParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="background:#374151;padding:28px 32px;">
+            <p style="margin:0;color:#d1d5db;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">SessionPro</p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:800;">We missed you today</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+              Hi ${params.clientName.split(' ')[0]}, we noticed you weren&rsquo;t able to make your session with <strong>${params.proName}</strong> today.
+              ${params.refunded ? 'A full refund has been issued and should appear within 5–10 business days.' : 'Reach out to your instructor if you&rsquo;d like to reschedule.'}
+            </p>
+
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+              <tr><td style="padding:20px 24px;">
+                ${row('Session', params.serviceName)}
+                ${row('Date', dateStr)}
+                ${row('Time', timeStr)}
+                ${params.refunded ? row('Refund', 'Full refund issued') : ''}
+              </td></tr>
+            </table>
+
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              Reply to this email if you have any questions.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.clientEmail,
+    subject: `We missed you — ${params.serviceName} with ${params.proName}`,
+    html,
+  });
+  if (error) console.error('[email] no-show notification failed:', error);
 }
 
 type ReviewRequestParams = {

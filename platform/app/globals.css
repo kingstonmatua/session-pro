@@ -1554,6 +1554,7 @@ h1 {
 .status-draft { background: var(--amber-light); color: var(--amber); }
 .status-confirmed { background: var(--green-light); color: var(--green); }
 .status-past { background: var(--border); color: var(--ink-soft); }
+.status-noshow { background: #fef3c7; color: #92400e; }
 
 .dashboard-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 

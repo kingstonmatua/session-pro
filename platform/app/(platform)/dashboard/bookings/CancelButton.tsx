@@ -8,6 +8,7 @@ type Props = { bookingId: string; clientName: string; sessionName: string };
 
 export function CancelButton({ bookingId, clientName, sessionName }: Props) {
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -15,9 +16,14 @@ export function CancelButton({ bookingId, clientName, sessionName }: Props) {
   function handleCancel() {
     setError(null);
     startTransition(async () => {
-      const res = await fetch(`/api/bookings/${bookingId}/cancel`, { method: 'POST' });
+      const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() || undefined }),
+      });
       if (res.ok) {
         setOpen(false);
+        setReason('');
         router.refresh();
       } else {
         const body = await res.json().catch(() => ({}));
@@ -29,7 +35,7 @@ export function CancelButton({ bookingId, clientName, sessionName }: Props) {
   return (
     <>
       <button
-        onClick={() => { setError(null); setOpen(true); }}
+        onClick={() => { setError(null); setReason(''); setOpen(true); }}
         className="button button-danger"
         style={{ fontSize: 13, minHeight: 32, padding: '0 12px' }}
       >
@@ -55,6 +61,15 @@ export function CancelButton({ bookingId, clientName, sessionName }: Props) {
                 <strong>{sessionName}</strong> session. They&rsquo;ll receive a cancellation email
                 and a full refund automatically.
               </p>
+              <textarea
+                className="form-input"
+                placeholder="Reason for cancellation (optional)"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                rows={2}
+                disabled={pending}
+                style={{ resize: 'none', fontSize: 13, marginTop: 12, width: '100%' }}
+              />
               <p className="cancel-note">This cannot be undone.</p>
             </div>
 

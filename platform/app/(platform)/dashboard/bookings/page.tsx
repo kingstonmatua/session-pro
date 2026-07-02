@@ -3,6 +3,8 @@ import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown, Pa
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
+import { NoShowButton } from './NoShowButton';
+import { RescheduleButton } from './RescheduleButton';
 import { SendLinkButton } from './SendLinkButton';
 import { RequestActionButtons } from './RequestActionButtons';
 
@@ -51,7 +53,7 @@ export default async function BookingsPage() {
       .from('bookings')
       .select('*, clients(full_name, email), services(name, duration_minutes)')
       .eq('pro_id', pro.id)
-      .in('status', ['confirmed', 'pending_payment', 'completed'])
+      .in('status', ['confirmed', 'pending_payment', 'completed', 'no_show'])
       .order('starts_at', { ascending: true }),
     supabase
       .from('package_enrollments')
@@ -179,6 +181,11 @@ export default async function BookingsPage() {
                         >
                           <CalendarArrowDown size={14} />
                         </a>
+                        <RescheduleButton
+                          bookingId={booking.id}
+                          clientName={booking.clients?.full_name ?? 'Client'}
+                          sessionName={booking.services?.name ?? 'session'}
+                        />
                         <CancelButton
                           bookingId={booking.id}
                           clientName={booking.clients?.full_name ?? 'Client'}
@@ -271,7 +278,19 @@ export default async function BookingsPage() {
                         <strong>{dollars(booking.pro_payout_cents)}</strong>
                       </div>
                       <div className="booking-cell-actions">
-                        <span className="status-badge status-past">Completed</span>
+                        {booking.status === 'no_show' ? (
+                          <span className="status-badge status-noshow">No-show</span>
+                        ) : booking.status === 'confirmed' ? (
+                          <>
+                            <NoShowButton
+                              bookingId={booking.id}
+                              clientName={booking.clients?.full_name ?? 'Client'}
+                              sessionName={booking.services?.name ?? 'session'}
+                            />
+                          </>
+                        ) : (
+                          <span className="status-badge status-past">Completed</span>
+                        )}
                         <a
                           href={`/api/bookings/${booking.id}/ical`}
                           className="button"
