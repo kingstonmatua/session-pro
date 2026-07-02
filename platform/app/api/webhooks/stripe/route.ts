@@ -25,12 +25,13 @@ export async function POST(req: Request) {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const { holdId, proId, serviceId, requestId, groupSlotId } = (session.metadata ?? {}) as {
+  const { holdId, proId, serviceId, requestId, groupSlotId, recurringBookingId } = (session.metadata ?? {}) as {
     holdId?: string;
     proId?: string;
     serviceId?: string;
     requestId?: string;
     groupSlotId?: string;
+    recurringBookingId?: string;
   };
 
   if (!holdId || !proId || !serviceId) {
@@ -156,6 +157,22 @@ export async function POST(req: Request) {
       }
       if (requestId) {
         await supabase.from('booking_requests').update({ status: 'paid' }).eq('id', requestId);
+      }
+      if (recurringBookingId) {
+        const { data: rb } = await supabase
+          .from('recurring_bookings')
+          .select('frequency, next_starts_at, next_ends_at')
+          .eq('id', recurringBookingId)
+          .single();
+        if (rb) {
+          const freqDays: Record<string, number> = { weekly: 7, biweekly: 14, monthly: 28 };
+          const freqMs = (freqDays[rb.frequency] ?? 7) * 24 * 60 * 60 * 1000;
+          await supabase.from('recurring_bookings').update({
+            next_starts_at: new Date(new Date(rb.next_starts_at).getTime() + freqMs).toISOString(),
+            next_ends_at: new Date(new Date(rb.next_ends_at).getTime() + freqMs).toISOString(),
+            last_link_sent_at: null,
+          }).eq('id', recurringBookingId);
+        }
       }
     }),
     supabase.from('booking_holds').update({ status: 'converted' }).eq('id', holdId),

@@ -912,6 +912,151 @@ export async function sendNextSessionLink(params: NextSessionLinkParams) {
   if (error) console.error('[email] next session link failed:', error);
 }
 
+type RecurringInviteParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  frequency: 'weekly' | 'biweekly' | 'monthly';
+  nextStartsAt: string;
+  timezone: string;
+  recurringBookingId: string;
+};
+
+export async function sendRecurringInvite(params: RecurringInviteParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const { dateStr, timeStr } = formatDateTime(params.nextStartsAt, params.timezone);
+  const frequencyLabel = { weekly: 'Weekly', biweekly: 'Every two weeks', monthly: 'Monthly' }[params.frequency];
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const acceptUrl = `${appUrl}/booking/recurring?id=${params.recurringBookingId}&action=accept`;
+  const declineUrl = `${appUrl}/booking/recurring?id=${params.recurringBookingId}&action=decline`;
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#059669;padding:28px 32px;">
+          <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Recurring session invite</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, <strong>${params.proName}</strong> has invited you to set up recurring ${params.serviceName} sessions. A payment link will be sent 48 hours before each session — just pay and you&rsquo;re confirmed.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row('Frequency', frequencyLabel)}
+              ${row('First session', dateStr)}
+              ${row('Time', timeStr)}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+            <tr>
+              <td style="padding-right:8px;">
+                <a href="${acceptUrl}" style="display:block;text-align:center;background:#059669;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;border-radius:8px;">Accept</a>
+              </td>
+              <td style="padding-left:8px;">
+                <a href="${declineUrl}" style="display:block;text-align:center;background:#f9fafb;color:#374151;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;border-radius:8px;border:1px solid #e5e7eb;">Decline</a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">You can cancel at any time by clicking the cancel link in any future payment email.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.clientEmail,
+    subject: `Recurring session invite — ${params.serviceName} with ${params.proName}`,
+    html,
+  });
+  if (error) console.error('[email] recurring invite failed:', error);
+}
+
+type RecurringPaymentLinkParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  startsAt: string;
+  timezone: string;
+  paymentUrl: string;
+  paymentExpiresAt: string;
+  recurringBookingId: string;
+};
+
+export async function sendRecurringPaymentLink(params: RecurringPaymentLinkParams) {
+  const resend = getResend();
+  if (!resend) return;
+
+  const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+  const expiryStr = new Date(params.paymentExpiresAt).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const cancelUrl = `${appUrl}/booking/recurring?id=${params.recurringBookingId}&action=cancel`;
+
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#059669;padding:28px 32px;">
+          <p style="margin:0;color:#d1fae5;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Your next session is coming up</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, your next <strong>${params.serviceName}</strong> session with <strong>${params.proName}</strong> is in 48 hours. Complete your payment to confirm.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row('Date', dateStr)}
+              ${row('Time', timeStr)}
+              ${row('Payment link expires', expiryStr)}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+            <tr><td align="center">
+              <a href="${params.paymentUrl}" style="display:inline-block;background:#059669;color:#fff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:8px;">
+                Complete payment
+              </a>
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+            If you no longer want recurring sessions, <a href="${cancelUrl}" style="color:#6b7280;">cancel your subscription here</a>.
+          </p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro &mdash; Powered by Stripe</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: params.clientEmail,
+    subject: `Your ${params.serviceName} session is in 48 hours — complete payment`,
+    html,
+  });
+  if (error) console.error('[email] recurring payment link failed:', error);
+}
+
 function row(label: string, value: string) {
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">

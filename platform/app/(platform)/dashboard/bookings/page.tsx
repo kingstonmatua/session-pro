@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown, Package } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown, Package, Repeat2 } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
@@ -8,6 +8,8 @@ import { RebookButton } from './RebookButton';
 import { RescheduleButton } from './RescheduleButton';
 import { SendLinkButton } from './SendLinkButton';
 import { RequestActionButtons } from './RequestActionButtons';
+import { InviteRecurringButton } from './InviteRecurringButton';
+import { CancelRecurringButton } from './CancelRecurringButton';
 
 function formatBookingTime(utcIso: string, timezone: string) {
   const date = new Date(utcIso);
@@ -49,7 +51,7 @@ export default async function BookingsPage() {
 
   if (!pro) redirect('/onboarding');
 
-  const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }] = await Promise.all([
+  const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }, { data: recurringBookings }] = await Promise.all([
     supabase
       .from('bookings')
       .select('*, clients(full_name, email), services(name, duration_minutes)')
@@ -68,6 +70,12 @@ export default async function BookingsPage() {
       .eq('pro_id', pro.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
+    supabase
+      .from('recurring_bookings')
+      .select('id, client_name, client_email, frequency, status, next_starts_at, services(name)')
+      .eq('pro_id', pro.id)
+      .in('status', ['pending_client', 'active'])
+      .order('created_at', { ascending: false }),
   ]);
 
   const now = new Date().toISOString();
@@ -241,6 +249,60 @@ export default async function BookingsPage() {
           </div>
         )}
 
+        {/* Recurring sessions */}
+        {(recurringBookings ?? []).length > 0 && (
+          <div className="dashboard-card" style={{ marginBottom: 16 }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Repeat2 size={18} color="var(--green)" /> Recurring sessions
+            </h3>
+            <div className="bookings-header-row">
+              <span>Client</span>
+              <span>Session</span>
+              <span>Frequency</span>
+              <span>Next session</span>
+              <span></span>
+            </div>
+            <div className="bookings-list">
+              {(recurringBookings ?? []).map(rb => {
+                const service = rb.services as unknown as { name: string } | null;
+                const { date, time } = formatBookingTime(rb.next_starts_at, pro.timezone);
+                const freqLabel: Record<string, string> = {
+                  weekly: 'Weekly',
+                  biweekly: 'Every 2 weeks',
+                  monthly: 'Monthly',
+                };
+                return (
+                  <div key={rb.id} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 1fr 2fr auto' }}>
+                    <div className="booking-cell">
+                      <strong>{rb.client_name}</strong>
+                      <span>{rb.client_email}</span>
+                    </div>
+                    <div className="booking-cell">
+                      <strong>{service?.name ?? '—'}</strong>
+                    </div>
+                    <div className="booking-cell">
+                      <strong>{freqLabel[rb.frequency] ?? rb.frequency}</strong>
+                    </div>
+                    <div className="booking-cell">
+                      {rb.status === 'pending_client' ? (
+                        <span className="status-badge" style={{ background: '#fef3c7', color: '#92400e' }}>Awaiting client</span>
+                      ) : (
+                        <>
+                          <strong style={{ fontSize: 13 }}>{date}</strong>
+                          <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{time}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="booking-cell-actions">
+                      <CancelRecurringButton recurringId={rb.id} clientName={rb.client_name} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Past */}
         <div className="dashboard-card">
           <h3>Past sessions</h3>
@@ -297,6 +359,11 @@ export default async function BookingsPage() {
                           lastStartsAt={booking.starts_at}
                           lastEndsAt={booking.ends_at}
                           timezone={pro.timezone}
+                        />
+                        <InviteRecurringButton
+                          bookingId={booking.id}
+                          clientName={booking.clients?.full_name ?? 'Client'}
+                          sessionName={booking.services?.name ?? 'session'}
                         />
                         <a
                           href={`/api/bookings/${booking.id}/ical`}

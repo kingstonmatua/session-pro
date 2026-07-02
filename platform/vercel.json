@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/complete-sessions",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/send-recurring-links",
+      "schedule": "0 10 * * *"
     }
   ]
 }
