@@ -412,6 +412,7 @@ type BookingRequestToProParams = {
   requestedStartsAt: string;
   timezone: string;
   requestId: string;
+  notes?: string | null;
 };
 
 export async function sendBookingRequestToPro(params: BookingRequestToProParams) {
@@ -441,6 +442,7 @@ export async function sendBookingRequestToPro(params: BookingRequestToProParams)
               ${row('Session', params.serviceName)}
               ${row('Date', dateStr)}
               ${row('Time', timeStr)}
+              ${params.notes ? row('Notes', params.notes) : ''}
             </td></tr>
           </table>
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">

@@ -45,9 +45,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
 
-  const { proId, serviceId, date, timeSlot, clientName, clientEmail } = body as {
+  const { proId, serviceId, date, timeSlot, clientName, clientEmail, notes } = body as {
     proId?: string; serviceId?: string; date?: string; timeSlot?: string;
-    clientName?: string; clientEmail?: string;
+    clientName?: string; clientEmail?: string; notes?: string | null;
   };
 
   if (!proId || !serviceId || !date || !timeSlot || !clientName?.trim() || !clientEmail?.trim()) {
@@ -119,6 +119,7 @@ export async function POST(req: Request) {
       requested_starts_at: startsAt,
       requested_ends_at: endsAt,
       status: 'pending',
+      notes: notes?.trim() || null,
     })
     .select('id')
     .single();
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
         requestedStartsAt: startsAt,
         timezone: pro.timezone,
         requestId: request.id,
+        notes: notes?.trim() || null,
       });
     }
   }

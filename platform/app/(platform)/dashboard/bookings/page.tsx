@@ -66,7 +66,7 @@ export default async function BookingsPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('booking_requests')
-      .select('id, client_name, client_email, requested_starts_at, requested_ends_at, services(name)')
+      .select('id, client_name, client_email, requested_starts_at, requested_ends_at, notes, services(name)')
       .eq('pro_id', pro.id)
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
@@ -105,17 +105,24 @@ export default async function BookingsPage() {
                 const service = req.services as unknown as { name: string } | null;
                 const { date, time } = formatBookingTime(req.requested_starts_at, pro.timezone);
                 return (
-                  <div key={req.id} id={`request-${req.id}`} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
-                    <span>
-                      <strong style={{ fontSize: 14 }}>{date}</strong>
-                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>
-                    </span>
-                    <span>
-                      <strong style={{ fontSize: 14 }}>{req.client_name}</strong>
-                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{req.client_email}</span>
-                    </span>
-                    <span style={{ fontSize: 13 }}>{service?.name ?? '—'}</span>
-                    <RequestActionButtons requestId={req.id} />
+                  <div key={req.id} id={`request-${req.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <div className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
+                      <span>
+                        <strong style={{ fontSize: 14 }}>{date}</strong>
+                        <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>
+                      </span>
+                      <span>
+                        <strong style={{ fontSize: 14 }}>{req.client_name}</strong>
+                        <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{req.client_email}</span>
+                      </span>
+                      <span style={{ fontSize: 13 }}>{service?.name ?? '—'}</span>
+                      <RequestActionButtons requestId={req.id} />
+                    </div>
+                    {req.notes && (
+                      <div style={{ padding: '8px 12px 10px', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderRadius: '0 0 8px 8px', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--ink)', marginRight: 6 }}>Notes:</strong>{req.notes}
+                      </div>
+                    )}
                   </div>
                 );
               })}

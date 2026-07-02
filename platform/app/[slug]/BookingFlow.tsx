@@ -46,6 +46,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
   // Request mode fields
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
+  const [clientNotes, setClientNotes] = useState('');
   const [requestSent, setRequestSent] = useState(false);
 
   const canCheckout = selectedService !== null && selectedDate !== null && selectedTime !== null;
@@ -86,6 +87,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           timeSlot: selectedTime,
           clientName: clientName.trim(),
           clientEmail: clientEmail.trim(),
+          notes: clientNotes.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -414,6 +416,14 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
                   placeholder="Your email"
                   value={clientEmail}
                   onChange={(e) => setClientEmail(e.target.value)}
+                />
+                <textarea
+                  className="form-input"
+                  placeholder="Any notes for your instructor? (optional)"
+                  value={clientNotes}
+                  onChange={(e) => setClientNotes(e.target.value)}
+                  rows={3}
+                  style={{ resize: 'vertical', minHeight: 72 }}
                 />
               </div>
               <button
