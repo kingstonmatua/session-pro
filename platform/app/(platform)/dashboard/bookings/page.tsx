@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CancelButton } from './CancelButton';
 import { NoShowButton } from './NoShowButton';
+import { RebookButton } from './RebookButton';
 import { RescheduleButton } from './RescheduleButton';
 import { SendLinkButton } from './SendLinkButton';
 import { RequestActionButtons } from './RequestActionButtons';
@@ -281,16 +282,22 @@ export default async function BookingsPage() {
                         {booking.status === 'no_show' ? (
                           <span className="status-badge status-noshow">No-show</span>
                         ) : booking.status === 'confirmed' ? (
-                          <>
-                            <NoShowButton
-                              bookingId={booking.id}
-                              clientName={booking.clients?.full_name ?? 'Client'}
-                              sessionName={booking.services?.name ?? 'session'}
-                            />
-                          </>
+                          <NoShowButton
+                            bookingId={booking.id}
+                            clientName={booking.clients?.full_name ?? 'Client'}
+                            sessionName={booking.services?.name ?? 'session'}
+                          />
                         ) : (
                           <span className="status-badge status-past">Completed</span>
                         )}
+                        <RebookButton
+                          bookingId={booking.id}
+                          clientName={booking.clients?.full_name ?? 'Client'}
+                          sessionName={booking.services?.name ?? 'session'}
+                          lastStartsAt={booking.starts_at}
+                          lastEndsAt={booking.ends_at}
+                          timezone={pro.timezone}
+                        />
                         <a
                           href={`/api/bookings/${booking.id}/ical`}
                           className="button"
