@@ -1,16 +1,16 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Loader2, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import type { AvailabilityRule, AvailabilityException } from '@/types/sessionpro';
 
 type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-
-type DayRule = { on: boolean; start: string; end: string };
+type TimeRange = { start: string; end: string };
+type DayRule = { on: boolean; ranges: TimeRange[] };
 
 type ExceptionState =
   | { type: 'blocked'; id: string }
-  | { type: 'override'; id: string; start: string; end: string };
+  | { type: 'override'; ids: string[]; ranges: TimeRange[] };
 
 type Props = {
   proId: string;
@@ -21,14 +21,14 @@ type Props = {
 
 const DAY_KEYS: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_LABELS: Record<DayKey, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
-const DAY_LONG: Record<DayKey, string> = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
 const DOW_TO_KEY: DayKey[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAY_NAMES_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const TIME_OPTIONS: { value: string; label: string }[] = [];
-for (let h = 6; h <= 21; h++) {
+for (let h = 6; h <= 22; h++) {
   for (const m of ['00', '30']) {
+    if (h === 22 && m === '30') continue;
     const ap = h < 12 ? 'AM' : 'PM';
     const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
     TIME_OPTIONS.push({ value: `${String(h).padStart(2, '0')}:${m}`, label: `${h12}:${m} ${ap}` });
@@ -49,7 +49,6 @@ function utcToLocalTimeStr(utcIso: string, timezone: string): string {
   }).formatToParts(new Date(utcIso));
   const h = parts.find(p => p.type === 'hour')?.value ?? '00';
   const mn = parts.find(p => p.type === 'minute')?.value ?? '00';
-  // Handle midnight shown as '24'
   return `${h === '24' ? '00' : h}:${mn}`;
 }
 
@@ -75,18 +74,28 @@ function fmt12(t: string): string {
   return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
 }
 
+function fmtRanges(ranges: TimeRange[]): string {
+  return ranges.map(r => `${fmt12(r.start)} – ${fmt12(r.end)}`).join(', ');
+}
+
 function buildTemplate(rules: AvailabilityRule[]): Record<DayKey, DayRule> {
   const tpl: Record<DayKey, DayRule> = {
-    mon: { on: false, start: '09:00', end: '17:00' },
-    tue: { on: false, start: '09:00', end: '17:00' },
-    wed: { on: false, start: '09:00', end: '17:00' },
-    thu: { on: false, start: '09:00', end: '17:00' },
-    fri: { on: false, start: '09:00', end: '17:00' },
-    sat: { on: false, start: '09:00', end: '17:00' },
-    sun: { on: false, start: '09:00', end: '17:00' },
+    mon: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    tue: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    wed: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    thu: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    fri: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    sat: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
+    sun: { on: false, ranges: [{ start: '09:00', end: '17:00' }] },
   };
+  const byDay: Partial<Record<DayKey, TimeRange[]>> = {};
   for (const r of rules) {
-    tpl[r.day as DayKey] = { on: true, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) };
+    const key = r.day as DayKey;
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key]!.push({ start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) });
+  }
+  for (const [day, ranges] of Object.entries(byDay)) {
+    tpl[day as DayKey] = { on: true, ranges: ranges! };
   }
   return tpl;
 }
@@ -98,12 +107,17 @@ function buildExceptionMap(exceptions: AvailabilityException[], timezone: string
     if (!exc.is_available) {
       map[dateStr] = { type: 'blocked', id: exc.id };
     } else {
-      map[dateStr] = {
-        type: 'override',
-        id: exc.id,
+      const existing = map[dateStr];
+      const range: TimeRange = {
         start: utcToLocalTimeStr(exc.starts_at, timezone),
         end: utcToLocalTimeStr(exc.ends_at, timezone),
       };
+      if (existing?.type === 'override') {
+        existing.ids.push(exc.id);
+        existing.ranges.push(range);
+      } else {
+        map[dateStr] = { type: 'override', ids: [exc.id], ranges: [range] };
+      }
     }
   }
   return map;
@@ -126,15 +140,48 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
   const [excSaving, setExcSaving] = useState(false);
   const [excError, setExcError] = useState('');
 
+  // ── Template helpers ──────────────────────────────────────────────
+  function setDayOn(d: DayKey, on: boolean) {
+    setTemplate(prev => ({ ...prev, [d]: { ...prev[d], on } }));
+  }
+
+  function updateRange(d: DayKey, idx: number, field: 'start' | 'end', val: string) {
+    setTemplate(prev => {
+      const ranges = prev[d].ranges.map((r, i) => i === idx ? { ...r, [field]: val } : r);
+      return { ...prev, [d]: { ...prev[d], ranges } };
+    });
+  }
+
+  function addRange(d: DayKey) {
+    setTemplate(prev => {
+      const last = prev[d].ranges[prev[d].ranges.length - 1];
+      const newRange: TimeRange = last
+        ? { start: last.end, end: last.end }
+        : { start: '09:00', end: '17:00' };
+      return { ...prev, [d]: { ...prev[d], ranges: [...prev[d].ranges, newRange] } };
+    });
+  }
+
+  function removeRange(d: DayKey, idx: number) {
+    setTemplate(prev => {
+      const ranges = prev[d].ranges.filter((_, i) => i !== idx);
+      return { ...prev, [d]: { ...prev[d], ranges: ranges.length > 0 ? ranges : [{ start: '09:00', end: '17:00' }] } };
+    });
+  }
+
   // ── Weekly template save ──────────────────────────────────────────
   async function saveWeeklyTemplate() {
     setRuleError('');
     const activeRules = DAY_KEYS
       .filter(d => template[d].on)
-      .map(d => ({ day: d, start_time: template[d].start, end_time: template[d].end }));
+      .flatMap(d =>
+        template[d].ranges
+          .filter(r => r.start < r.end)
+          .map(r => ({ day: d, start_time: r.start, end_time: r.end }))
+      );
 
     if (activeRules.length === 0) {
-      setRuleError('Select at least one day.');
+      setRuleError('Select at least one day with valid hours.');
       return;
     }
 
@@ -156,52 +203,62 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
   }
 
   // ── Exception helpers ─────────────────────────────────────────────
-  async function saveException(dateStr: string, type: 'blocked' | 'override', start?: string, end?: string) {
+  function getExistingIds(dateStr: string): string[] {
+    const exc = exceptions[dateStr];
+    if (!exc) return [];
+    return exc.type === 'blocked' ? [exc.id] : exc.ids;
+  }
+
+  async function saveException(dateStr: string, type: 'blocked' | 'override', ranges?: TimeRange[]) {
     setExcError('');
     setExcSaving(true);
 
-    const existing = exceptions[dateStr];
+    const existingIds = getExistingIds(dateStr);
+    await Promise.all(existingIds.map(id => fetch(`/api/schedule/exceptions/${id}`, { method: 'DELETE' })));
 
-    // Delete old exception if it exists
-    if (existing?.id) {
-      await fetch(`/api/schedule/exceptions/${existing.id}`, { method: 'DELETE' });
+    if (type === 'blocked') {
+      const res = await fetch('/api/schedule/exceptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          starts_at: localToUTC(dateStr, '00:00', timezone),
+          ends_at: localToUTC(dateStr, '23:59', timezone),
+          is_available: false,
+        }),
+      });
+      if (!res.ok) { setExcError('Failed to save.'); setExcSaving(false); return; }
+      const { exception } = await res.json();
+      setExceptions(prev => ({ ...prev, [dateStr]: { type: 'blocked', id: exception.id } }));
+    } else {
+      const results = await Promise.all((ranges ?? []).map(async r => {
+        const res = await fetch('/api/schedule/exceptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            starts_at: localToUTC(dateStr, r.start, timezone),
+            ends_at: localToUTC(dateStr, r.end, timezone),
+            is_available: true,
+          }),
+        });
+        if (!res.ok) return null;
+        const { exception } = await res.json();
+        return exception;
+      }));
+      const valid = results.filter(Boolean);
+      if (valid.length === 0) { setExcError('Failed to save.'); setExcSaving(false); return; }
+      setExceptions(prev => ({
+        ...prev,
+        [dateStr]: { type: 'override', ids: valid.map((e: { id: string }) => e.id), ranges: ranges! },
+      }));
     }
-
-    const starts_at = type === 'blocked'
-      ? localToUTC(dateStr, '00:00', timezone)
-      : localToUTC(dateStr, start!, timezone);
-    const ends_at = type === 'blocked'
-      ? localToUTC(dateStr, '23:59', timezone)
-      : localToUTC(dateStr, end!, timezone);
-
-    const res = await fetch('/api/schedule/exceptions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ starts_at, ends_at, is_available: type === 'override' }),
-    });
-
-    if (!res.ok) {
-      const { error } = await res.json();
-      setExcError(error ?? 'Failed to save.');
-      setExcSaving(false);
-      return;
-    }
-
-    const { exception } = await res.json();
-    setExceptions(prev => ({
-      ...prev,
-      [dateStr]: type === 'blocked'
-        ? { type: 'blocked', id: exception.id }
-        : { type: 'override', id: exception.id, start: start!, end: end! },
-    }));
     setExcSaving(false);
   }
 
   async function deleteException(dateStr: string) {
-    const exc = exceptions[dateStr];
-    if (!exc?.id) return;
+    const existingIds = getExistingIds(dateStr);
+    if (existingIds.length === 0) return;
     setExcSaving(true);
-    await fetch(`/api/schedule/exceptions/${exc.id}`, { method: 'DELETE' });
+    await Promise.all(existingIds.map(id => fetch(`/api/schedule/exceptions/${id}`, { method: 'DELETE' })));
     setExceptions(prev => {
       const next = { ...prev };
       delete next[dateStr];
@@ -210,13 +267,12 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
     setExcSaving(false);
   }
 
-  async function bulkSaveException(dates: string[], type: 'blocked' | 'override' | 'restore', start?: string, end?: string) {
+  async function bulkSaveException(dates: string[], type: 'blocked' | 'override' | 'restore', ranges?: TimeRange[]) {
     setExcError('');
     setExcSaving(true);
 
-    // Delete all existing exceptions for these dates first
-    const deleteIds = dates.map(d => exceptions[d]?.id).filter(Boolean) as string[];
-    await Promise.all(deleteIds.map(id => fetch(`/api/schedule/exceptions/${id}`, { method: 'DELETE' })));
+    const allIds = dates.flatMap(d => getExistingIds(d));
+    await Promise.all(allIds.map(id => fetch(`/api/schedule/exceptions/${id}`, { method: 'DELETE' })));
 
     if (type === 'restore') {
       setExceptions(prev => {
@@ -228,32 +284,51 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
       return;
     }
 
-    // Create new exceptions for all dates
     const results = await Promise.all(dates.map(async dateStr => {
-      const starts_at = type === 'blocked'
-        ? localToUTC(dateStr, '00:00', timezone)
-        : localToUTC(dateStr, start!, timezone);
-      const ends_at = type === 'blocked'
-        ? localToUTC(dateStr, '23:59', timezone)
-        : localToUTC(dateStr, end!, timezone);
-
-      const res = await fetch('/api/schedule/exceptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ starts_at, ends_at, is_available: type === 'override' }),
-      });
-      if (!res.ok) return null;
-      const { exception } = await res.json();
-      return { dateStr, exception };
+      if (type === 'blocked') {
+        const res = await fetch('/api/schedule/exceptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            starts_at: localToUTC(dateStr, '00:00', timezone),
+            ends_at: localToUTC(dateStr, '23:59', timezone),
+            is_available: false,
+          }),
+        });
+        if (!res.ok) return null;
+        const { exception } = await res.json();
+        return { dateStr, state: { type: 'blocked' as const, id: exception.id } };
+      } else {
+        const rangeResults = await Promise.all((ranges ?? []).map(async r => {
+          const res = await fetch('/api/schedule/exceptions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              starts_at: localToUTC(dateStr, r.start, timezone),
+              ends_at: localToUTC(dateStr, r.end, timezone),
+              is_available: true,
+            }),
+          });
+          if (!res.ok) return null;
+          const { exception } = await res.json();
+          return exception;
+        }));
+        const valid = rangeResults.filter(Boolean);
+        return {
+          dateStr,
+          state: {
+            type: 'override' as const,
+            ids: valid.map((e: { id: string }) => e.id),
+            ranges: ranges!,
+          },
+        };
+      }
     }));
 
     setExceptions(prev => {
       const next = { ...prev };
       for (const r of results) {
-        if (!r) continue;
-        next[r.dateStr] = type === 'blocked'
-          ? { type: 'blocked', id: r.exception.id }
-          : { type: 'override', id: r.exception.id, start: start!, end: end! };
+        if (r) next[r.dateStr] = r.state;
       }
       return next;
     });
@@ -303,12 +378,11 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
     });
   }
 
-  // ── Render ────────────────────────────────────────────────────────
   const selCount = selectedDates.size;
   const selDates = [...selectedDates].sort();
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 24, alignItems: 'start' }}>
 
       {/* ── Left: Weekly Template ──────────────────────────────── */}
       <div className="dashboard-card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -322,43 +396,72 @@ export function ScheduleClient({ timezone, initialRules, initialExceptions }: Pr
           return (
             <div
               key={d}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid var(--border)' }}
+              style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)' }}
             >
-              <button
-                type="button"
-                onClick={() => setTemplate(prev => ({ ...prev, [d]: { ...prev[d], on: !prev[d].on } }))}
-                style={{
-                  width: 18, height: 18, borderRadius: 4, flexShrink: 0, cursor: 'pointer', border: 'none',
-                  background: rule.on ? 'var(--green)' : 'transparent',
-                  outline: rule.on ? 'none' : '2px solid var(--border)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-                aria-label={`Toggle ${DAY_LABELS[d]}`}
-              >
-                {rule.on && <CheckCircle2 size={12} color="white" strokeWidth={3} />}
-              </button>
-
-              <span style={{ fontWeight: 600, fontSize: 13, width: 32, flexShrink: 0 }}>{DAY_LABELS[d]}</span>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, opacity: rule.on ? 1 : 0.3, pointerEvents: rule.on ? 'auto' : 'none' }}>
-                <select
-                  className="form-input"
-                  style={{ padding: '4px 6px', fontSize: 12, flex: 1 }}
-                  value={rule.start}
-                  onChange={e => setTemplate(prev => ({ ...prev, [d]: { ...prev[d], start: e.target.value } }))}
+              {/* Day header row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: rule.on ? 8 : 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setDayOn(d, !rule.on)}
+                  style={{
+                    width: 18, height: 18, borderRadius: 4, flexShrink: 0, cursor: 'pointer', border: 'none',
+                    background: rule.on ? 'var(--green)' : 'transparent',
+                    outline: rule.on ? 'none' : '2px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                  aria-label={`Toggle ${DAY_LABELS[d]}`}
                 >
-                  {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-                <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>→</span>
-                <select
-                  className="form-input"
-                  style={{ padding: '4px 6px', fontSize: 12, flex: 1 }}
-                  value={rule.end}
-                  onChange={e => setTemplate(prev => ({ ...prev, [d]: { ...prev[d], end: e.target.value } }))}
-                >
-                  {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                  {rule.on && <CheckCircle2 size={12} color="white" strokeWidth={3} />}
+                </button>
+                <span style={{ fontWeight: 600, fontSize: 13, width: 32, flexShrink: 0 }}>{DAY_LABELS[d]}</span>
+                {!rule.on && (
+                  <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Unavailable</span>
+                )}
               </div>
+
+              {/* Range rows */}
+              {rule.on && (
+                <div style={{ paddingLeft: 28 }}>
+                  {rule.ranges.map((r, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      <select
+                        className="form-input"
+                        style={{ padding: '4px 6px', fontSize: 12, flex: 1 }}
+                        value={r.start}
+                        onChange={e => updateRange(d, idx, 'start', e.target.value)}
+                      >
+                        {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', flexShrink: 0 }}>→</span>
+                      <select
+                        className="form-input"
+                        style={{ padding: '4px 6px', fontSize: 12, flex: 1 }}
+                        value={r.end}
+                        onChange={e => updateRange(d, idx, 'end', e.target.value)}
+                      >
+                        {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      {rule.ranges.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRange(d, idx)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', padding: 2, flexShrink: 0 }}
+                          aria-label="Remove range"
+                        >
+                          <X size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addRange(d)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 12, fontWeight: 500, padding: '2px 0' }}
+                  >
+                    <Plus size={13} /> Add time range
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -523,7 +626,7 @@ type SingleDayProps = {
   timezone: string;
   template: Record<DayKey, DayRule>;
   exceptions: Record<string, ExceptionState>;
-  onSaveException: (dateStr: string, type: 'blocked' | 'override', start?: string, end?: string) => Promise<void>;
+  onSaveException: (dateStr: string, type: 'blocked' | 'override', ranges?: TimeRange[]) => Promise<void>;
   onDeleteException: (dateStr: string) => Promise<void>;
   onClose: () => void;
   excError: string;
@@ -535,15 +638,36 @@ function SingleDayPanel({ dateStr, timezone, template, exceptions, onSaveExcepti
   const rule = template[dow];
   const exc = exceptions[dateStr];
 
-  const defaultStart = exc?.type === 'override' ? exc.start : rule?.start ?? '09:00';
-  const defaultEnd = exc?.type === 'override' ? exc.end : rule?.end ?? '17:00';
+  const defaultRanges: TimeRange[] =
+    exc?.type === 'override'
+      ? exc.ranges
+      : rule?.on && rule.ranges.length > 0
+        ? rule.ranges
+        : [{ start: '09:00', end: '17:00' }];
 
-  const [start, setStart] = useState(defaultStart);
-  const [end, setEnd] = useState(defaultEnd);
+  const [ranges, setRanges] = useState<TimeRange[]>(defaultRanges);
 
   const dayName = DAY_NAMES_LONG[dateObj.getDay()];
   const monthName = MONTH_NAMES[dateObj.getMonth()];
   const dateLabel = `${dayName}, ${monthName} ${dateObj.getDate()}`;
+
+  function updateRange(idx: number, field: 'start' | 'end', val: string) {
+    setRanges(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+  }
+
+  function addRange() {
+    setRanges(prev => {
+      const last = prev[prev.length - 1];
+      return [...prev, { start: last?.end ?? '09:00', end: last?.end ?? '17:00' }];
+    });
+  }
+
+  function removeRange(idx: number) {
+    setRanges(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length > 0 ? next : [{ start: '09:00', end: '17:00' }];
+    });
+  }
 
   return (
     <>
@@ -559,10 +683,10 @@ function SingleDayPanel({ dateStr, timezone, template, exceptions, onSaveExcepti
             <StatusPill color="red" label="Blocked" sub="Overrides your weekly hours for this date" />
           )}
           {exc?.type === 'override' && (
-            <StatusPill color="amber" label="Custom hours" sub={`${fmt12(exc.start)} – ${fmt12(exc.end)} (overrides weekly template)`} />
+            <StatusPill color="amber" label="Custom hours" sub={`${fmtRanges(exc.ranges)} (overrides weekly template)`} />
           )}
           {!exc && rule?.on && (
-            <StatusPill color="green" label="Available" sub={`Using weekly hours: ${fmt12(rule.start)} – ${fmt12(rule.end)}`} />
+            <StatusPill color="green" label="Available" sub={`Using weekly hours: ${fmtRanges(rule.ranges)}`} />
           )}
           {!exc && !rule?.on && (
             <StatusPill color="none" label="Not available" sub="Not in your weekly schedule" />
@@ -588,21 +712,39 @@ function SingleDayPanel({ dateStr, timezone, template, exceptions, onSaveExcepti
 
             <div className="form-field" style={{ marginBottom: 16 }}>
               <label className="form-label">Hours for this day</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <select className="form-input" value={start} onChange={e => setStart(e.target.value)} style={{ flex: 1 }}>
-                  {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-                <span style={{ color: 'var(--ink-soft)', fontSize: 13 }}>to</span>
-                <select className="form-input" value={end} onChange={e => setEnd(e.target.value)} style={{ flex: 1 }}>
-                  {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
+              {ranges.map((r, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <select className="form-input" value={r.start} onChange={e => updateRange(idx, 'start', e.target.value)} style={{ flex: 1 }}>
+                    {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <span style={{ color: 'var(--ink-soft)', fontSize: 13, flexShrink: 0 }}>to</span>
+                  <select className="form-input" value={r.end} onChange={e => updateRange(idx, 'end', e.target.value)} style={{ flex: 1 }}>
+                    {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  {ranges.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRange(idx)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', padding: 4, flexShrink: 0 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addRange}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 13, fontWeight: 500, padding: '4px 0' }}
+              >
+                <Plus size={14} /> Add time range
+              </button>
             </div>
 
             <button
               className="button button-primary"
               style={{ width: '100%', justifyContent: 'center', marginBottom: 10 }}
-              onClick={() => onSaveException(dateStr, 'override', start, end)}
+              onClick={() => onSaveException(dateStr, 'override', ranges)}
             >
               Save for this day
             </button>
@@ -640,14 +782,31 @@ function SingleDayPanel({ dateStr, timezone, template, exceptions, onSaveExcepti
 type BulkPanelProps = {
   dates: string[];
   onRemove: (dateStr: string) => void;
-  onSave: (dates: string[], type: 'blocked' | 'override' | 'restore', start?: string, end?: string) => Promise<void>;
+  onSave: (dates: string[], type: 'blocked' | 'override' | 'restore', ranges?: TimeRange[]) => Promise<void>;
   onClose: () => void;
   excError: string;
 };
 
 function BulkPanel({ dates, onRemove, onSave, onClose, excError }: BulkPanelProps) {
-  const [bulkStart, setBulkStart] = useState('09:00');
-  const [bulkEnd, setBulkEnd] = useState('17:00');
+  const [ranges, setRanges] = useState<TimeRange[]>([{ start: '09:00', end: '17:00' }]);
+
+  function updateRange(idx: number, field: 'start' | 'end', val: string) {
+    setRanges(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+  }
+
+  function addRange() {
+    setRanges(prev => {
+      const last = prev[prev.length - 1];
+      return [...prev, { start: last?.end ?? '09:00', end: last?.end ?? '17:00' }];
+    });
+  }
+
+  function removeRange(idx: number) {
+    setRanges(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      return next.length > 0 ? next : [{ start: '09:00', end: '17:00' }];
+    });
+  }
 
   function chipLabel(dateStr: string): string {
     const d = new Date(dateStr + 'T12:00:00');
@@ -688,21 +847,39 @@ function BulkPanel({ dates, onRemove, onSave, onClose, excError }: BulkPanelProp
         {/* Set hours */}
         <div className="form-field" style={{ marginBottom: 14 }}>
           <label className="form-label">Set hours for all selected days</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <select className="form-input" value={bulkStart} onChange={e => setBulkStart(e.target.value)} style={{ flex: 1 }}>
-              {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-            <span style={{ color: 'var(--ink-soft)', fontSize: 13 }}>to</span>
-            <select className="form-input" value={bulkEnd} onChange={e => setBulkEnd(e.target.value)} style={{ flex: 1 }}>
-              {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
+          {ranges.map((r, idx) => (
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <select className="form-input" value={r.start} onChange={e => updateRange(idx, 'start', e.target.value)} style={{ flex: 1 }}>
+                {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <span style={{ color: 'var(--ink-soft)', fontSize: 13, flexShrink: 0 }}>to</span>
+              <select className="form-input" value={r.end} onChange={e => updateRange(idx, 'end', e.target.value)} style={{ flex: 1 }}>
+                {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {ranges.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeRange(idx)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', padding: 4, flexShrink: 0 }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addRange}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--green)', fontSize: 13, fontWeight: 500, padding: '4px 0' }}
+          >
+            <Plus size={14} /> Add time range
+          </button>
         </div>
 
         <button
           className="button button-primary"
           style={{ width: '100%', justifyContent: 'center', marginBottom: 16 }}
-          onClick={() => onSave(dates, 'override', bulkStart, bulkEnd)}
+          onClick={() => onSave(dates, 'override', ranges)}
         >
           Set hours for {dates.length} days
         </button>
@@ -752,3 +929,4 @@ function StatusPill({ color, label, sub }: { color: 'green' | 'amber' | 'red' | 
     </div>
   );
 }
+

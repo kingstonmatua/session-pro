@@ -113,9 +113,11 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
   const [exceptions, setExceptions] = useState<AvailException[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
+  const rulesByDay = new Map<AvailabilityRule['day'], AvailabilityRule[]>();
   for (const rule of availability) {
-    ruleByDay.set(rule.day, rule);
+    const existing = rulesByDay.get(rule.day) ?? [];
+    existing.push(rule);
+    rulesByDay.set(rule.day, existing);
   }
 
   const isFirstRender = useRef(true);
@@ -189,12 +191,13 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     <div key={`e${i}`} className="cal-day cal-empty" />
   ));
 
-  // Build a map of date string → exception for fast lookup
-  const excByDate = new Map<string, AvailException>();
+  // Build a map of date string → exceptions array (multiple ranges per date)
+  const excByDate = new Map<string, AvailException[]>();
   for (const exc of exceptions) {
     const ds = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(exc.starts_at));
-    // Keep the most recent one per date if there are duplicates
-    if (!excByDate.has(ds)) excByDate.set(ds, exc);
+    const existing = excByDate.get(ds) ?? [];
+    existing.push(exc);
+    excByDate.set(ds, existing);
   }
 
   const dayCells = Array.from({ length: lastDate }, (_, i) => {
@@ -202,12 +205,12 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     const date = new Date(calYear, calMonth, d);
     const dow = date.getDay();
     const dateKey = calDateKey(date);
-    const exc = excByDate.get(dateKey);
+    const excs = excByDate.get(dateKey) ?? [];
 
-    // A day is available if: has a rule OR has an is_available exception, AND not blocked
-    const hasRule = ruleByDay.has(DOW_TO_DAY[dow]);
-    const isBlocked = exc && !exc.is_available;
-    const hasOverride = exc && exc.is_available;
+    // A day is available if: has rules OR has is_available exceptions, AND not blocked
+    const hasRule = (rulesByDay.get(DOW_TO_DAY[dow]) ?? []).length > 0;
+    const isBlocked = excs.some(e => !e.is_available);
+    const hasOverride = excs.some(e => e.is_available);
     const isPast = date < todayRef;
     const isToday = date.getTime() === todayRef.getTime();
     const isSelected = selectedDate?.getTime() === date.getTime();
@@ -233,12 +236,8 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     );
   });
 
-  const selectedRule = selectedDate
-    ? ruleByDay.get(DOW_TO_DAY[selectedDate.getDay()])
-    : undefined;
-
-  // If the selected date has an override exception, use those hours instead of the rule
-  const selectedExc = selectedDate ? excByDate.get(calDateKey(selectedDate)) : undefined;
+  const selectedExcs = selectedDate ? (excByDate.get(calDateKey(selectedDate)) ?? []) : [];
+  const overrideExcs = selectedExcs.filter(e => e.is_available);
 
   function isoToLocalHHMM(iso: string): string {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(iso));
@@ -247,20 +246,39 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     return `${h === '24' ? '00' : h}:${m}`;
   }
 
-  const effectiveRule: AvailabilityRule | undefined = selectedExc?.is_available
-    ? {
-        id: selectedExc.id,
+  function parseSlotMinutes(slot: string): number {
+    const [time, ampm] = slot.split(' ');
+    const [h, m] = time.split(':').map(Number);
+    let hour = h;
+    if (ampm === 'PM' && hour !== 12) hour += 12;
+    if (ampm === 'AM' && hour === 12) hour = 0;
+    return hour * 60 + m;
+  }
+
+  let availableSlots: string[];
+  if (overrideExcs.length > 0) {
+    // Use override exceptions (multiple time ranges) instead of weekly rules
+    const allSlots = overrideExcs.flatMap(exc => {
+      const overrideRule: AvailabilityRule = {
+        id: exc.id,
         pro_id: '',
         day: DOW_TO_DAY[selectedDate!.getDay()] as AvailabilityRule['day'],
         is_active: true,
-        start_time: isoToLocalHHMM(selectedExc.starts_at),
-        end_time: isoToLocalHHMM(selectedExc.ends_at),
-      }
-    : selectedRule;
-
-  const availableSlots = effectiveRule
-    ? generateSlots(effectiveRule, durationMinutes, bufferMinutes)
-    : [];
+        start_time: isoToLocalHHMM(exc.starts_at),
+        end_time: isoToLocalHHMM(exc.ends_at),
+      };
+      return generateSlots(overrideRule, durationMinutes, bufferMinutes);
+    });
+    // Deduplicate and sort
+    availableSlots = [...new Set(allSlots)].sort((a, b) => parseSlotMinutes(a) - parseSlotMinutes(b));
+  } else if (selectedDate) {
+    const dow = DOW_TO_DAY[selectedDate.getDay()];
+    const rules = rulesByDay.get(dow) ?? [];
+    const allSlots = rules.flatMap(rule => generateSlots(rule, durationMinutes, bufferMinutes));
+    availableSlots = [...new Set(allSlots)].sort((a, b) => parseSlotMinutes(a) - parseSlotMinutes(b));
+  } else {
+    availableSlots = [];
+  }
 
   const bookedSlots = selectedDate
     ? (bookedByDate.get(calDateKey(selectedDate)) ?? new Set<string>())
@@ -268,15 +286,13 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
 
   // Build blocked slots set
   const blockedSlots = new Set<string>();
-  if (selectedDate && selectedRule) {
+  if (selectedDate) {
     const dateKey = calDateKey(selectedDate);
     for (const slot of availableSlots) {
-      const [time, ampm] = slot.split(' ');
-      const [h, m] = time.split(':').map(Number);
-      let hour = h;
-      if (ampm === 'PM' && hour !== 12) hour += 12;
-      if (ampm === 'AM' && hour === 12) hour = 0;
-      const slotStart = new Date(`${dateKey}T${String(hour).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
+      const minutes = parseSlotMinutes(slot);
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      const slotStart = new Date(`${dateKey}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
       const slotEnd = new Date(slotStart.getTime() + (durationMinutes + bufferMinutes) * 60_000);
       for (const range of blockedRanges) {
         const blockStart = new Date(range.starts_at);
