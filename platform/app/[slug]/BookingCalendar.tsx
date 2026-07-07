@@ -82,6 +82,13 @@ function generateSlots(rule: AvailabilityRule, durationMinutes: number, bufferMi
   return slots;
 }
 
+type AvailException = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  is_available: boolean;
+};
+
 type Props = {
   proId: string;
   timezone: string;
@@ -103,6 +110,7 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
   const [bookedByDate, setBookedByDate] = useState<Map<string, Set<string>>>(new Map());
   const [blockedRanges, setBlockedRanges] = useState<{ starts_at: string; ends_at: string }[]>([]);
   const [groupSlotsByDate, setGroupSlotsByDate] = useState<Map<string, GroupSlotInfo[]>>(new Map());
+  const [exceptions, setExceptions] = useState<AvailException[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   const ruleByDay = new Map<AvailabilityRule['day'], AvailabilityRule>();
@@ -124,10 +132,11 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
 
     fetch(`/api/availability/${proId}?year=${calYear}&month=${calMonth}`)
       .then(r => r.ok ? r.json() : { bookedStartTimes: [], blockedTimes: [], groupSlots: [] })
-      .then(({ bookedStartTimes, blockedTimes, groupSlots }: {
+      .then(({ bookedStartTimes, blockedTimes, groupSlots, exceptions: excs }: {
         bookedStartTimes: string[];
         blockedTimes: { starts_at: string; ends_at: string }[];
         groupSlots: GroupSlotInfo[];
+        exceptions: AvailException[];
       }) => {
         if (cancelled) return;
 
@@ -140,6 +149,7 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
         }
         setBookedByDate(map);
         setBlockedRanges(blockedTimes ?? []);
+        setExceptions(excs ?? []);
 
         // Build group slots map by date
         const gsMap = new Map<string, GroupSlotInfo[]>();
@@ -179,15 +189,29 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     <div key={`e${i}`} className="cal-day cal-empty" />
   ));
 
+  // Build a map of date string → exception for fast lookup
+  const excByDate = new Map<string, AvailException>();
+  for (const exc of exceptions) {
+    const ds = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(exc.starts_at));
+    // Keep the most recent one per date if there are duplicates
+    if (!excByDate.has(ds)) excByDate.set(ds, exc);
+  }
+
   const dayCells = Array.from({ length: lastDate }, (_, i) => {
     const d = i + 1;
     const date = new Date(calYear, calMonth, d);
     const dow = date.getDay();
+    const dateKey = calDateKey(date);
+    const exc = excByDate.get(dateKey);
+
+    // A day is available if: has a rule OR has an is_available exception, AND not blocked
     const hasRule = ruleByDay.has(DOW_TO_DAY[dow]);
+    const isBlocked = exc && !exc.is_available;
+    const hasOverride = exc && exc.is_available;
     const isPast = date < todayRef;
     const isToday = date.getTime() === todayRef.getTime();
     const isSelected = selectedDate?.getTime() === date.getTime();
-    const disabled = !hasRule || isPast;
+    const disabled = (!hasRule && !hasOverride) || isBlocked || isPast;
 
     const cls = [
       'cal-day',
@@ -213,8 +237,29 @@ export function BookingCalendar({ proId, timezone, availability, durationMinutes
     ? ruleByDay.get(DOW_TO_DAY[selectedDate.getDay()])
     : undefined;
 
-  const availableSlots = selectedRule
-    ? generateSlots(selectedRule, durationMinutes, bufferMinutes)
+  // If the selected date has an override exception, use those hours instead of the rule
+  const selectedExc = selectedDate ? excByDate.get(calDateKey(selectedDate)) : undefined;
+
+  function isoToLocalHHMM(iso: string): string {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(iso));
+    const h = parts.find(p => p.type === 'hour')?.value ?? '00';
+    const m = parts.find(p => p.type === 'minute')?.value ?? '00';
+    return `${h === '24' ? '00' : h}:${m}`;
+  }
+
+  const effectiveRule: AvailabilityRule | undefined = selectedExc?.is_available
+    ? {
+        id: selectedExc.id,
+        pro_id: '',
+        day: DOW_TO_DAY[selectedDate!.getDay()] as AvailabilityRule['day'],
+        is_active: true,
+        start_time: isoToLocalHHMM(selectedExc.starts_at),
+        end_time: isoToLocalHHMM(selectedExc.ends_at),
+      }
+    : selectedRule;
+
+  const availableSlots = effectiveRule
+    ? generateSlots(effectiveRule, durationMinutes, bufferMinutes)
     : [];
 
   const bookedSlots = selectedDate

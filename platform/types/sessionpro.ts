@@ -45,6 +45,15 @@ export type AvailabilityRule = {
   is_active: boolean;
 };
 
+export type AvailabilityException = {
+  id: string;
+  pro_id: string;
+  starts_at: string;
+  ends_at: string;
+  is_available: boolean;
+  reason: string | null;
+};
+
 export type Review = {
   id: string;
   rating: number;

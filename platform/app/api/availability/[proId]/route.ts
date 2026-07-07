@@ -32,6 +32,7 @@ export async function GET(
     { data: acceptedRequests },
     { data: blocked },
     { data: groupSlots },
+    { data: exceptions },
   ] = await Promise.all([
     supabase
       .from('bookings')
@@ -75,6 +76,12 @@ export async function GET(
     supabase
       .from('group_slots')
       .select('id, starts_at, ends_at, capacity, service_id, label, services(name)')
+      .eq('pro_id', proId)
+      .gte('starts_at', startOfMonth)
+      .lte('starts_at', endOfMonth),
+    supabase
+      .from('availability_exceptions')
+      .select('id, starts_at, ends_at, is_available')
       .eq('pro_id', proId)
       .gte('starts_at', startOfMonth)
       .lte('starts_at', endOfMonth),
@@ -125,5 +132,5 @@ export async function GET(
     ...(acceptedRequests ?? []).map((r) => r.requested_starts_at),
   ];
 
-  return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [], groupSlots: groupSlotData });
+  return NextResponse.json({ bookedStartTimes, blockedTimes: blocked ?? [], groupSlots: groupSlotData, exceptions: exceptions ?? [] });
 }

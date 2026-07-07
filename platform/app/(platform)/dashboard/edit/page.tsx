@@ -15,27 +15,18 @@ export default async function EditProfilePage() {
 
   if (!pro) redirect('/onboarding');
 
-  const [{ data: availability }, { data: services }] = await Promise.all([
-    supabase
-      .from('availability_rules')
-      .select('*')
-      .eq('pro_id', pro.id)
-      .eq('is_active', true)
-      .order('day'),
-    supabase
-      .from('services')
-      .select('*')
-      .eq('pro_id', pro.id)
-      .eq('is_active', true)
-      .order('sort_order'),
-  ]);
+  const { data: services } = await supabase
+    .from('services')
+    .select('*')
+    .eq('pro_id', pro.id)
+    .eq('is_active', true)
+    .order('sort_order');
 
   return (
     <div className="dashboard-shell">
       <div className="dashboard-inner">
         <EditProfileForm
           pro={pro}
-          availability={availability ?? []}
           services={services ?? []}
         />
       </div>

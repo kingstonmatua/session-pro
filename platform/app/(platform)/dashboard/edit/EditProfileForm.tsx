@@ -5,7 +5,7 @@ import { ArrowLeft, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
-import type { AvailabilityRule, Service } from '@/types/sessionpro';
+import type { Service } from '@/types/sessionpro';
 
 async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> {
   const image = new Image();
@@ -18,16 +18,6 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<Blob> 
   ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
   return new Promise(resolve => canvas.toBlob(blob => resolve(blob!), 'image/jpeg', 0.92));
 }
-
-const DAYS = [
-  { key: 'mon', label: 'Mon' },
-  { key: 'tue', label: 'Tue' },
-  { key: 'wed', label: 'Wed' },
-  { key: 'thu', label: 'Thu' },
-  { key: 'fri', label: 'Fri' },
-  { key: 'sat', label: 'Sat' },
-  { key: 'sun', label: 'Sun' },
-];
 
 type Pro = {
   id: string;
@@ -46,11 +36,10 @@ type Pro = {
 
 type Props = {
   pro: Pro;
-  availability: AvailabilityRule[];
   services: Service[];
 };
 
-export function EditProfileForm({ pro, availability, services }: Props) {
+export function EditProfileForm({ pro, services }: Props) {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -83,15 +72,6 @@ export function EditProfileForm({ pro, availability, services }: Props) {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileError, setProfileError] = useState('');
-
-  // ── Availability fields ─────────────────────────────────────────
-  const [days, setDays] = useState<string[]>(availability.map(r => r.day));
-  const [startTime, setStartTime] = useState(availability[0]?.start_time?.slice(0, 5) ?? '08:00');
-  const [endTime, setEndTime] = useState(availability[0]?.end_time?.slice(0, 5) ?? '18:00');
-
-  const [availSaving, setAvailSaving] = useState(false);
-  const [availSaved, setAvailSaved] = useState(false);
-  const [availError, setAvailError] = useState('');
 
   // ── Pricing fields ──────────────────────────────────────────────
   type LessonType = { name: string; price: string };
@@ -126,10 +106,6 @@ export function EditProfileForm({ pro, availability, services }: Props) {
     setPhotoFile(new File([blob], 'profile.jpg', { type: 'image/jpeg' }));
     setPhotoPreview(URL.createObjectURL(blob));
     setCropSrc(null);
-  }
-
-  function toggleDay(day: string) {
-    setDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   }
 
   // ── Save: profile ───────────────────────────────────────────────
@@ -175,45 +151,6 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       setTimeout(() => setProfileSaved(false), 3000);
     }
     setProfileSaving(false);
-  }
-
-  // ── Save: availability ──────────────────────────────────────────
-  async function saveAvailability() {
-    setAvailError('');
-    if (days.length === 0) {
-      setAvailError('Select at least one day.');
-      return;
-    }
-    setAvailSaving(true);
-
-    const { error: delError } = await supabase
-      .from('availability_rules')
-      .delete()
-      .eq('pro_id', pro.id);
-
-    if (delError) {
-      setAvailError(delError.message);
-      setAvailSaving(false);
-      return;
-    }
-
-    const { error: insError } = await supabase
-      .from('availability_rules')
-      .insert(days.map(day => ({
-        pro_id: pro.id,
-        day,
-        start_time: startTime,
-        end_time: endTime,
-        is_active: true,
-      })));
-
-    if (insError) {
-      setAvailError(insError.message);
-    } else {
-      setAvailSaved(true);
-      setTimeout(() => setAvailSaved(false), 3000);
-    }
-    setAvailSaving(false);
   }
 
   // ── Save: pricing ───────────────────────────────────────────────
@@ -407,49 +344,11 @@ export function EditProfileForm({ pro, availability, services }: Props) {
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
         <h3>Availability</h3>
         <p style={{ fontSize: 14, color: 'var(--ink-soft)', marginTop: -4, marginBottom: 20 }}>
-          Changes take effect immediately on your public page.
+          Set your weekly hours and override specific dates from the Schedule page.
         </p>
-
-        <div className="form-field">
-          <label className="form-label">Available days</label>
-          <div className="day-checkboxes">
-            {DAYS.map(d => (
-              <div key={d.key} className="day-chip">
-                <input
-                  type="checkbox"
-                  id={`ep-day-${d.key}`}
-                  checked={days.includes(d.key)}
-                  onChange={() => toggleDay(d.key)}
-                />
-                <label htmlFor={`ep-day-${d.key}`}>{d.label}</label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-grid-2">
-          <div className="form-field">
-            <label className="form-label" htmlFor="ep-start">Start time</label>
-            <input id="ep-start" type="time" className="form-input" value={startTime} onChange={e => setStartTime(e.target.value)} />
-          </div>
-          <div className="form-field">
-            <label className="form-label" htmlFor="ep-end">End time</label>
-            <input id="ep-end" type="time" className="form-input" value={endTime} onChange={e => setEndTime(e.target.value)} />
-          </div>
-        </div>
-
-        {availError && <div className="form-error">{availError}</div>}
-
-        <div className="edit-save-row">
-          {availSaved && (
-            <span className="edit-saved-label">
-              <CheckCircle2 size={15} /> Saved
-            </span>
-          )}
-          <button className="button button-primary" onClick={saveAvailability} disabled={availSaving} style={{ minWidth: 155 }}>
-            {availSaving ? 'Saving…' : 'Save availability'}
-          </button>
-        </div>
+        <Link href="/dashboard/schedule" className="button button-primary" style={{ display: 'inline-flex', fontSize: 14, minHeight: 38, padding: '0 16px' }}>
+          Manage Schedule
+        </Link>
       </div>
 
       {/* ── Pricing ──────────────────────────────────────────────── */}

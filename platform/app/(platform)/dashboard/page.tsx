@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { CheckCircle2, ExternalLink, Calendar, Star, Settings, Banknote, AlertCircle, MessageSquare } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Calendar, Star, Settings, Banknote, AlertCircle, MessageSquare, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogoutButton } from './LogoutButton';
@@ -184,6 +184,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </Link>
             <Link href="/dashboard/calendar" className="button">
               <Calendar size={15} /> Calendar
+            </Link>
+            <Link href="/dashboard/schedule" className="button">
+              <Clock size={15} /> Schedule
             </Link>
             <Link href="/dashboard/reviews" className="button">
               <MessageSquare size={15} /> Reviews
