@@ -58,13 +58,13 @@ export async function GET(
       .gt('requested_starts_at', now)
       .gte('requested_starts_at', startOfMonth)
       .lte('requested_starts_at', endOfMonth),
-    // Accepted requests block the slot until payment is received or the payment window expires
+    // Accepted requests block the slot indefinitely until the pro resolves it —
+    // either the client pays, or the pro resends a link / unblocks the slot.
     supabase
       .from('booking_requests')
       .select('requested_starts_at')
       .eq('pro_id', proId)
       .eq('status', 'accepted')
-      .gt('payment_expires_at', now)
       .gte('requested_starts_at', startOfMonth)
       .lte('requested_starts_at', endOfMonth),
     supabase

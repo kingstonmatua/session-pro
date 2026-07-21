@@ -10,6 +10,7 @@ import { SendLinkButton } from './SendLinkButton';
 import { RequestActionButtons } from './RequestActionButtons';
 import { RescheduleRequestActionButtons } from './RescheduleRequestActionButtons';
 import { ResendPaymentLinkButton } from './ResendPaymentLinkButton';
+import { UnblockCancelButton } from './UnblockCancelButton';
 import { InviteRecurringButton } from './InviteRecurringButton';
 import { CancelRecurringButton } from './CancelRecurringButton';
 
@@ -166,9 +167,18 @@ export default async function BookingsPage() {
                     </span>
                     <span style={{ fontSize: 13 }}>
                       {service?.name ?? '—'}
-                      <br /><span style={{ color: expired ? '#dc2626' : 'var(--ink-soft)' }}>{expired ? 'Payment link expired' : 'Payment link sent'}</span>
+                      <br /><span style={{ color: expired ? '#dc2626' : 'var(--ink-soft)' }}>
+                        {expired ? 'Link expired — slot still held' : 'Payment link sent'}
+                      </span>
                     </span>
-                    <ResendPaymentLinkButton requestId={req.id} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <ResendPaymentLinkButton requestId={req.id} />
+                      <UnblockCancelButton
+                        requestId={req.id}
+                        clientName={req.client_name}
+                        sessionName={service?.name ?? 'session'}
+                      />
+                    </div>
                   </div>
                 );
               })}

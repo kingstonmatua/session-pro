@@ -598,6 +598,53 @@ export async function sendBookingRequestDeclined(params: BookingRequestDeclinedP
   if (error) console.error('[email] request declined failed:', error);
 }
 
+type BookingRequestPaymentExpiredParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  requestedStartsAt: string;
+  timezone: string;
+};
+
+export async function sendBookingRequestPaymentExpired(params: BookingRequestPaymentExpiredParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#374151;padding:28px 32px;">
+          <p style="margin:0;color:#d1d5db;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Booking request cancelled</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.clientName.split(' ')[0]}, we didn&rsquo;t receive payment for your session with <strong>${params.proName}</strong> in time, so the request has been cancelled and the time released.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row('Requested date', dateStr)}
+              ${row('Requested time', timeStr)}
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">No charge was made. You&rsquo;re welcome to submit a new request on their profile page.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.clientEmail, subject: `Booking request cancelled — ${params.proName}`, html });
+  if (error) console.error('[email] payment expired notice failed:', error);
+}
+
 type RescheduleRequestToClientParams = {
   clientEmail: string;
   clientName: string;
