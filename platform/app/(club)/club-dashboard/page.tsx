@@ -1,13 +1,16 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { CalendarDays, CircleDollarSign, ExternalLink, Settings, Users } from 'lucide-react';
+import { CalendarDays, CircleDollarSign, CheckCircle2, ExternalLink, Settings, Users } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { FacilitySubscriptionCard } from './FacilitySubscriptionCard';
 
 function dollars(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
 }
 
-export default async function ClubDashboardPage() {
+type PageProps = { searchParams: Promise<{ subscription?: string }> };
+
+export default async function ClubDashboardPage({ searchParams }: PageProps) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
@@ -15,7 +18,10 @@ export default async function ClubDashboardPage() {
   const { data: club } = await supabase.from('clubs').select('*').eq('user_id', user.id).single();
   if (!club) redirect('/dashboard');
 
-  const { data: roster } = await supabase.from('pros').select('id').eq('club_id', club.id);
+  const [{ data: roster }, { subscription: subscriptionParam }] = await Promise.all([
+    supabase.from('pros').select('id').eq('club_id', club.id).eq('status', 'active'),
+    searchParams,
+  ]);
   const proIds = (roster ?? []).map((p) => p.id);
 
   const now = new Date();
@@ -48,6 +54,20 @@ export default async function ClubDashboardPage() {
   return (
     <div className="admin-inner">
       <h1 className="admin-page-title">Welcome back, {club.name}</h1>
+
+      {subscriptionParam === 'success' && (
+        <div className="dashboard-banner dashboard-banner--success" style={{ marginBottom: 16 }}>
+          <CheckCircle2 size={18} />
+          Facility subscription active — all your pros now book at 0% platform fee.
+        </div>
+      )}
+
+      <FacilitySubscriptionCard
+        subscriptionStatus={club.subscription_status}
+        seatCount={club.seat_count ?? 0}
+        rosterCount={proIds.length}
+        hasStripeCustomer={!!club.stripe_customer_id}
+      />
 
       <div className="admin-card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}>Your public page</h3>

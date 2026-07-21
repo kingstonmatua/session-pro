@@ -159,6 +159,9 @@ function makeDemoPro(
     stripe_connect_account_id: null,
     booking_mode: "instant",
     club_id: DEMO_CLUB_ID,
+    billing_model: "facility_subscription",
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
     services: [
       makeService(id, "Beginner lesson", "Beginner", "single", 1, 10000, null, sortBase + 10),
       makeService(id, "Advanced lesson", "Advanced", "single", 1, 12000, null, sortBase + 20),
@@ -194,6 +197,9 @@ function getClubDemoFallback(slug: string): ClubPageData | null {
       plan_name: "Club",
       monthly_fee_cents: null,
       subscription_status: "active",
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      seat_count: 3,
       created_at: "2026-01-01T00:00:00Z",
     },
     pros: [
@@ -255,7 +261,10 @@ function getDemoFallback(slug: string): ProPageData | null {
       status: "active",
       stripe_connect_account_id: null,
       booking_mode: "instant",
-      club_id: null
+      club_id: null,
+      billing_model: "take_rate",
+      stripe_customer_id: null,
+      stripe_subscription_id: null
     },
     services: [
       makeService(proId, "Beginner lesson", "Beginner", "single", 1, 10000, null, 10),

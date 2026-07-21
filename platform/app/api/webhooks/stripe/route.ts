@@ -21,11 +21,88 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
+  const admin = createAdminClient();
+
+  // ── Subscription lifecycle events ──────────────────────────────────────────
+  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object as Stripe.Subscription;
+    const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+    const isActive = sub.status === 'active' || sub.status === 'trialing';
+
+    // Try pro first, then club
+    const { data: pro } = await admin
+      .from('pros')
+      .select('id, club_id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle();
+
+    if (pro) {
+      await admin.from('pros').update({
+        billing_model: isActive ? 'solo_subscription' : 'take_rate',
+        stripe_subscription_id: isActive ? sub.id : null,
+      }).eq('id', pro.id);
+      return NextResponse.json({ received: true });
+    }
+
+    const { data: club } = await admin
+      .from('clubs')
+      .select('id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle();
+
+    if (club) {
+      const seatCount = (sub.items.data[0]?.quantity ?? 0);
+      await admin.from('clubs').update({
+        subscription_status: isActive ? 'active' : 'canceled',
+        stripe_subscription_id: isActive ? sub.id : null,
+        seat_count: seatCount,
+      }).eq('id', club.id);
+
+      // Flip all linked pros to facility_subscription or back to take_rate
+      const newModel = isActive ? 'facility_subscription' : 'take_rate';
+      await admin.from('pros').update({ billing_model: newModel }).eq('club_id', club.id);
+      return NextResponse.json({ received: true });
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type !== 'checkout.session.completed') {
     return NextResponse.json({ received: true });
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
+
+  // ── Subscription checkout completed ────────────────────────────────────────
+  if (session.mode === 'subscription') {
+    const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+    const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+    const { entity, entityId } = (session.metadata ?? {}) as { entity?: string; entityId?: string };
+
+    if (!customerId || !subscriptionId || !entity || !entityId) {
+      return NextResponse.json({ received: true });
+    }
+
+    if (entity === 'pro') {
+      await admin.from('pros').update({
+        billing_model: 'solo_subscription',
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+      }).eq('id', entityId);
+    } else if (entity === 'club') {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const seatCount = sub.items.data[0]?.quantity ?? 0;
+      await admin.from('clubs').update({
+        subscription_status: 'active',
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+        seat_count: seatCount,
+      }).eq('id', entityId);
+      await admin.from('pros').update({ billing_model: 'facility_subscription' }).eq('club_id', entityId);
+    }
+
+    return NextResponse.json({ received: true });
+  }
   const { holdId, proId, serviceId, requestId, groupSlotId, recurringBookingId } = (session.metadata ?? {}) as {
     holdId?: string;
     proId?: string;
@@ -41,13 +118,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
-  const supabase = createAdminClient();
+  const supabase = admin;
 
   try {
   const [{ data: hold }, { data: service }, { data: pro }] = await Promise.all([
     supabase.from('booking_holds').select('*').eq('id', holdId).single(),
     supabase.from('services').select('name, price_cents, currency, duration_minutes, kind, session_count').eq('id', serviceId).single(),
-    supabase.from('pros').select('full_name, timezone, club_or_business, user_id, club_id, stripe_connect_account_id').eq('id', proId).single(),
+    supabase.from('pros').select('full_name, timezone, club_or_business, user_id, club_id, stripe_connect_account_id, billing_model').eq('id', proId).single(),
   ]);
 
   if (!hold || hold.status !== 'active') {

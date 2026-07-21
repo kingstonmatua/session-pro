@@ -74,7 +74,7 @@ export async function POST(req: Request) {
   const supabase = createAdminClient();
 
   const [{ data: pro, error: proError }, { data: service, error: serviceError }] = await Promise.all([
-    supabase.from('pros').select('id, full_name, timezone, slug, status, stripe_connect_account_id, club_id').eq('id', proId).single(),
+    supabase.from('pros').select('id, full_name, timezone, slug, status, stripe_connect_account_id, club_id, billing_model').eq('id', proId).single(),
     supabase.from('services').select('*').eq('id', serviceId).eq('is_active', true).single(),
   ]);
 

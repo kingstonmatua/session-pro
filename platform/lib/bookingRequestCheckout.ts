@@ -6,7 +6,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 type Params = {
   admin: AdminClient;
-  pro: { id: string; full_name: string; slug: string; stripe_connect_account_id: string | null; club_id: string | null };
+  pro: { id: string; full_name: string; slug: string; stripe_connect_account_id: string | null; club_id: string | null; billing_model?: string };
   service: { id: string; name: string; price_cents: number; currency: string };
   requestId: string;
   startsAt: string;

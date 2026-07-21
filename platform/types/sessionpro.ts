@@ -18,6 +18,9 @@ export type Pro = {
   stripe_connect_account_id: string | null;
   booking_mode: "instant" | "request";
   club_id: string | null;
+  billing_model: "take_rate" | "solo_subscription" | "facility_subscription";
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
 };
 
 export type Club = {
@@ -32,6 +35,9 @@ export type Club = {
   plan_name: string | null;
   monthly_fee_cents: number | null;
   subscription_status: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  seat_count: number;
   created_at: string;
 };
 

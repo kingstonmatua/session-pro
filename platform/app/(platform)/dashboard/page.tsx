@@ -7,6 +7,7 @@ import { ConnectStripeButton } from './ConnectStripeButton';
 import { ShareButtons } from './ShareButtons';
 import { StatusToggle } from './StatusToggle';
 import { MarketplaceToggle } from './MarketplaceToggle';
+import { SubscriptionCard } from './SubscriptionCard';
 import Stripe from 'stripe';
 
 async function getConnectStatus(accountId: string | null): Promise<'not_connected' | 'pending' | 'active'> {
@@ -21,7 +22,7 @@ async function getConnectStatus(accountId: string | null): Promise<'not_connecte
 }
 
 type PageProps = {
-  searchParams: Promise<{ connect?: string }>;
+  searchParams: Promise<{ connect?: string; subscription?: string }>;
 };
 
 export default async function DashboardPage({ searchParams }: PageProps) {
@@ -38,12 +39,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   if (!pro) redirect('/onboarding');
 
-  const [{ count: bookingCount }, { count: reviewCount }, connectStatus, { connect: connectParam }] = await Promise.all([
+  const [{ count: bookingCount }, { count: reviewCount }, connectStatus, resolvedParams] = await Promise.all([
     supabase.from('bookings').select('*', { count: 'exact', head: true }).eq('pro_id', pro.id),
     supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('pro_id', pro.id),
     getConnectStatus(pro.stripe_connect_account_id),
     searchParams,
   ]);
+  const { connect: connectParam, subscription: subscriptionParam } = resolvedParams;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
   const profileUrl = `sessionpro.io/${pro.slug}`;
@@ -74,6 +76,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <div className="dashboard-banner dashboard-banner--warning">
             <AlertCircle size={18} />
             Stripe setup isn&rsquo;t complete yet. Finish your account to receive payouts.
+          </div>
+        )}
+        {subscriptionParam === 'success' && (
+          <div className="dashboard-banner dashboard-banner--success">
+            <CheckCircle2 size={18} />
+            You&rsquo;re subscribed — 0% platform fee on all bookings going forward.
           </div>
         )}
 
@@ -146,7 +154,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                   <CheckCircle2 size={18} />
                   <div>
                     <strong>Stripe connected</strong>
-                    <p>You&rsquo;ll receive 90% of each booking automatically. Platform fee: 10%.</p>
+                    <p>
+                      {pro.billing_model === 'take_rate'
+                        ? 'You\'ll receive 90% of each booking automatically. Platform fee: 10%.'
+                        : 'You\'ll receive 100% of each booking — no platform fee on your subscription plan.'}
+                    </p>
                   </div>
                   <Link
                     href="/api/stripe/express-link"
@@ -180,6 +192,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </>
           )}
         </div>
+
+        {/* Subscription */}
+        <SubscriptionCard
+          billingModel={pro.billing_model ?? 'take_rate'}
+          hasStripeCustomer={!!pro.stripe_customer_id}
+        />
 
         {/* Quick actions */}
         <div className="dashboard-card">
