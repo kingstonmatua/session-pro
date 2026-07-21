@@ -187,7 +187,7 @@ function getClubDemoFallback(slug: string): ClubPageData | null {
       user_id: null,
       slug: "demo",
       name: "Fairway Ridge Golf Club",
-      logo_path: null,
+      logo_path: "/images/fairway-ridge-golf-club.png",
       description: "Private lessons with our PGA and LPGA teaching staff — pick a pro below and book directly.",
       stripe_connect_account_id: null,
       status: "active",
@@ -221,7 +221,7 @@ function getClubDemoFallback(slug: string): ClubPageData | null {
         "Priya Nandan",
         "LPGA Teaching Professional",
         "Priya works with beginners and juniors, building fundamentals through patient, encouraging instruction.",
-        null,
+        "/images/priya-nandan.png",
         5.0, 19, 300
       ),
     ],
