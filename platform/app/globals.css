@@ -1462,6 +1462,46 @@ h1 {
   cursor: default;
 }
 
+.lesson-type-policy-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.lesson-type-policy-toggle:hover {
+  background: var(--bg-soft, #f8f8f8);
+  color: var(--ink);
+}
+
+.lesson-type-policy-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  margin-top: -2px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: var(--bg-soft, #fafafa);
+}
+
+.policy-tier-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .session-mode-group {
   display: flex;
   gap: 8px;

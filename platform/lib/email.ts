@@ -83,6 +83,10 @@ export async function sendClientConfirmation(params: ClientConfirmationParams) {
             ${params.bookingId ? `
             <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
               <tr><td align="center">
+                <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io'}/booking/reschedule-request?booking_id=${params.bookingId}"
+                   style="color:#6b7280;font-size:13px;text-decoration:underline;margin-right:16px;">
+                  Reschedule this booking
+                </a>
                 <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io'}/booking/cancel?booking_id=${params.bookingId}"
                    style="color:#6b7280;font-size:13px;text-decoration:underline;">
                   Cancel this booking
@@ -90,7 +94,7 @@ export async function sendClientConfirmation(params: ClientConfirmationParams) {
               </td></tr>
             </table>` : ''}
             <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
-              Free cancellation up to 24 hours before your session. Reply to this email if you have any questions.
+              Cancellation and reschedule policies vary by session — see the links above for details. Reply to this email if you have any questions.
             </p>
           </td>
         </tr>
@@ -195,6 +199,8 @@ type CancellationEmailParams = {
   startsAt: string;
   timezone: string;
   reason?: string;
+  refundPercent?: number;
+  refundAmountCents?: number;
 };
 
 export async function sendCancellationEmail(params: CancellationEmailParams) {
@@ -202,6 +208,18 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
   if (!resend) return;
 
   const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+
+  const refundPercent = params.refundPercent ?? 100;
+  const refundLine = refundPercent <= 0
+    ? 'No refund issued'
+    : refundPercent >= 100
+      ? 'Full refund issued'
+      : `${refundPercent}% refund issued ($${((params.refundAmountCents ?? 0) / 100).toFixed(2)})`;
+  const refundSentence = refundPercent <= 0
+    ? 'Based on the cancellation policy for this session, no refund was issued.'
+    : refundPercent >= 100
+      ? 'A full refund has been issued and should appear within 5–10 business days.'
+      : `A ${refundPercent}% refund has been issued and should appear within 5–10 business days.`;
 
   const html = `
 <!DOCTYPE html>
@@ -221,7 +239,7 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
           <td style="padding:32px;">
             <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
               Hi ${params.clientName.split(' ')[0]}, your session with <strong>${params.proName}</strong> has been cancelled.
-              A full refund has been issued and should appear within 5–10 business days.
+              ${refundSentence}
             </p>
 
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
@@ -229,7 +247,7 @@ export async function sendCancellationEmail(params: CancellationEmailParams) {
                 ${row('Session', params.serviceName)}
                 ${row('Date', dateStr)}
                 ${row('Time', timeStr)}
-                ${row('Refund', 'Full refund issued')}
+                ${row('Refund', refundLine)}
                 ${params.reason ? row('Reason', params.reason) : ''}
               </td></tr>
             </table>
@@ -267,6 +285,7 @@ type NoShowNotificationParams = {
   startsAt: string;
   timezone: string;
   refunded: boolean;
+  creditIssued?: boolean;
 };
 
 export async function sendNoShowNotification(params: NoShowNotificationParams) {
@@ -274,6 +293,12 @@ export async function sendNoShowNotification(params: NoShowNotificationParams) {
   if (!resend) return;
 
   const { dateStr, timeStr } = formatDateTime(params.startsAt, params.timezone);
+
+  const outcomeSentence = params.refunded
+    ? 'A full refund has been issued and should appear within 5–10 business days.'
+    : params.creditIssued
+      ? "You've been issued a make-up session credit — check your inbox for a separate email with a link to book your next session."
+      : 'Reach out to your instructor if you&rsquo;d like to reschedule.';
 
   const html = `
 <!DOCTYPE html>
@@ -293,7 +318,7 @@ export async function sendNoShowNotification(params: NoShowNotificationParams) {
           <td style="padding:32px;">
             <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
               Hi ${params.clientName.split(' ')[0]}, we noticed you weren&rsquo;t able to make your session with <strong>${params.proName}</strong> today.
-              ${params.refunded ? 'A full refund has been issued and should appear within 5–10 business days.' : 'Reach out to your instructor if you&rsquo;d like to reschedule.'}
+              ${outcomeSentence}
             </p>
 
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
@@ -302,6 +327,7 @@ export async function sendNoShowNotification(params: NoShowNotificationParams) {
                 ${row('Date', dateStr)}
                 ${row('Time', timeStr)}
                 ${params.refunded ? row('Refund', 'Full refund issued') : ''}
+                ${params.creditIssued ? row('Outcome', 'Make-up credit issued') : ''}
               </td></tr>
             </table>
 
@@ -637,6 +663,65 @@ export async function sendRescheduleRequestToClient(params: RescheduleRequestToC
   if (error) console.error('[email] reschedule request to client failed:', error);
 }
 
+type RescheduleRequestToProParams = {
+  proEmail: string;
+  proName: string;
+  clientName: string;
+  serviceName: string;
+  oldStartsAt: string;
+  newStartsAt: string;
+  newEndsAt: string;
+  timezone: string;
+  reason?: string;
+};
+
+export async function sendRescheduleRequestToPro(params: RescheduleRequestToProParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
+  const { dateStr: oldDateStr, timeStr: oldTimeStr } = formatDateTime(params.oldStartsAt, params.timezone);
+  const { dateStr: newDateStr, timeStr: newTimeStr } = formatDateTime(params.newStartsAt, params.timezone);
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:#d97706;padding:28px 32px;">
+          <p style="margin:0;color:#fef3c7;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">Client requested a reschedule</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            Hi ${params.proName.split(' ')[0]}, <strong>${params.clientName}</strong> has requested a new time for their ${params.serviceName} session.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:24px;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Original date', oldDateStr)}
+              ${row('Original time', oldTimeStr)}
+              ${row('Requested date', `<strong>${newDateStr}</strong>`)}
+              ${row('Requested time', `<strong>${newTimeStr}</strong>`)}
+              ${params.reason ? row('Reason', params.reason) : ''}
+            </td></tr>
+          </table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+            <tr><td align="center">
+              <a href="${appUrl}/dashboard/bookings" style="display:block;text-align:center;background:#059669;color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;border-radius:8px;">Review request</a>
+            </td></tr>
+          </table>
+          <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">If you decline, the client&rsquo;s original session time remains confirmed.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.proEmail, subject: `Reschedule request — ${params.clientName}`, html });
+  if (error) console.error('[email] reschedule request to pro failed:', error);
+}
+
 type RescheduleResultToProParams = {
   proEmail: string;
   proName: string;
@@ -684,6 +769,55 @@ export async function sendRescheduleResultToPro(params: RescheduleResultToProPar
 </body></html>`;
   const { error } = await resend.emails.send({ from: FROM, to: params.proEmail, subject: `Reschedule ${params.accepted ? 'accepted' : 'declined'} — ${params.clientName}`, html });
   if (error) console.error('[email] reschedule result to pro failed:', error);
+}
+
+type RescheduleResultToClientParams = {
+  clientEmail: string;
+  clientName: string;
+  proName: string;
+  serviceName: string;
+  requestedStartsAt: string;
+  timezone: string;
+  accepted: boolean;
+};
+
+export async function sendRescheduleResultToClient(params: RescheduleResultToClientParams) {
+  const resend = getResend();
+  if (!resend) return;
+  const { dateStr, timeStr } = formatDateTime(params.requestedStartsAt, params.timezone);
+  const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:520px;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="background:${params.accepted ? '#059669' : '#374151'};padding:28px 32px;">
+          <p style="margin:0;color:${params.accepted ? '#d1fae5' : '#d1d5db'};font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;">SessionPro</p>
+          <h1 style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:800;">${params.accepted ? 'Reschedule confirmed' : 'Reschedule request declined'}</h1>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+            ${params.accepted
+              ? `Hi ${params.clientName.split(' ')[0]}, <strong>${params.proName}</strong> accepted your reschedule request. Your session is now confirmed for the new time.`
+              : `Hi ${params.clientName.split(' ')[0]}, <strong>${params.proName}</strong> wasn&rsquo;t able to accommodate your requested time. Your original session time remains confirmed.`}
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+            <tr><td style="padding:20px 24px;">
+              ${row('Session', params.serviceName)}
+              ${row(params.accepted ? 'New date' : 'Requested date', dateStr)}
+              ${row(params.accepted ? 'New time' : 'Requested time', timeStr)}
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;">SessionPro</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  const { error } = await resend.emails.send({ from: FROM, to: params.clientEmail, subject: `Reschedule request ${params.accepted ? 'accepted' : 'declined'} — ${params.proName}`, html });
+  if (error) console.error('[email] reschedule result to client failed:', error);
 }
 
 type ReminderEmailParams = {

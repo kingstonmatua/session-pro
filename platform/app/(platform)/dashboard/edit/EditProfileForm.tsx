@@ -1,7 +1,7 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
-import { ArrowLeft, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import Cropper, { type Area } from 'react-easy-crop';
@@ -74,13 +74,38 @@ export function EditProfileForm({ pro, services }: Props) {
   const [profileError, setProfileError] = useState('');
 
   // ── Pricing fields ──────────────────────────────────────────────
-  type LessonType = { name: string; price: string };
+  type RefundTier = { hoursBefore: string; refundPercent: string };
+  type LessonType = {
+    name: string; price: string;
+    cancellationWindowHours: string;
+    cancellationRefundTiers: RefundTier[];
+    rescheduleWindowHours: string;
+    clientRescheduleLimit: string;
+    noShowPolicy: 'forfeit' | 'credit';
+  };
+  const defaultPolicy = () => ({
+    cancellationWindowHours: '24',
+    cancellationRefundTiers: [{ hoursBefore: '0', refundPercent: '100' }],
+    rescheduleWindowHours: '24',
+    clientRescheduleLimit: '1',
+    noShowPolicy: 'forfeit' as const,
+  });
   const singles = services.filter(s => s.kind === 'single').sort((a, b) => a.sort_order - b.sort_order);
   const [lessonTypes, setLessonTypes] = useState<LessonType[]>(
     singles.length > 0
-      ? singles.map(s => ({ name: s.level ?? s.name, price: String(s.price_cents / 100) }))
-      : [{ name: 'Beginner', price: '' }, { name: 'Advanced', price: '' }]
+      ? singles.map(s => ({
+          name: s.level ?? s.name,
+          price: String(s.price_cents / 100),
+          cancellationWindowHours: String(s.cancellation_window_hours ?? 24),
+          cancellationRefundTiers: (s.cancellation_refund_tiers?.length ? s.cancellation_refund_tiers : [{ hours_before: 0, refund_percent: 100 }])
+            .map(t => ({ hoursBefore: String(t.hours_before), refundPercent: String(t.refund_percent) })),
+          rescheduleWindowHours: String(s.reschedule_window_hours ?? 24),
+          clientRescheduleLimit: String(s.client_reschedule_limit ?? 1),
+          noShowPolicy: s.no_show_policy ?? 'forfeit',
+        }))
+      : [{ name: 'Beginner', price: '', ...defaultPolicy() }, { name: 'Advanced', price: '', ...defaultPolicy() }]
   );
+  const [expandedPolicy, setExpandedPolicy] = useState<Record<number, boolean>>({});
   const [duration, setDuration] = useState(String(services[0]?.duration_minutes ?? 60));
 
   const [priceSaving, setPriceSaving] = useState(false);
@@ -162,6 +187,19 @@ export function EditProfileForm({ pro, services }: Props) {
       if (!lt.name.trim()) { setPriceError('All lesson types need a name.'); return; }
       const p = parseInt(lt.price, 10);
       if (isNaN(p) || p <= 0) { setPriceError(`Enter a valid price for "${lt.name}".`); return; }
+      const cancelWindow = parseInt(lt.cancellationWindowHours, 10);
+      if (isNaN(cancelWindow) || cancelWindow < 0) { setPriceError(`Enter a valid cancellation window for "${lt.name}".`); return; }
+      const rescheduleWindow = parseInt(lt.rescheduleWindowHours, 10);
+      if (isNaN(rescheduleWindow) || rescheduleWindow < 0) { setPriceError(`Enter a valid reschedule window for "${lt.name}".`); return; }
+      const rescheduleLimit = parseInt(lt.clientRescheduleLimit, 10);
+      if (isNaN(rescheduleLimit) || rescheduleLimit < 0) { setPriceError(`Enter a valid reschedule limit for "${lt.name}".`); return; }
+      if (lt.cancellationRefundTiers.length === 0) { setPriceError(`Add at least one refund tier for "${lt.name}".`); return; }
+      for (const tier of lt.cancellationRefundTiers) {
+        const hb = parseInt(tier.hoursBefore, 10);
+        const rp = parseInt(tier.refundPercent, 10);
+        if (isNaN(hb) || hb < 0) { setPriceError(`Enter a valid tier notice window for "${lt.name}".`); return; }
+        if (isNaN(rp) || rp < 0 || rp > 100) { setPriceError(`Refund percent must be 0-100 for "${lt.name}".`); return; }
+      }
     }
     if (isNaN(durationMins) || durationMins < 15 || durationMins > 480) {
       setPriceError('Session duration must be between 15 and 480 minutes.');
@@ -186,10 +224,19 @@ export function EditProfileForm({ pro, services }: Props) {
       const priceCents = parseInt(lt.price, 10) * 100;
       const sortBase = (i + 1) * 10;
       const name = lt.name.trim();
+      const policy = {
+        cancellation_window_hours: parseInt(lt.cancellationWindowHours, 10),
+        cancellation_refund_tiers: lt.cancellationRefundTiers
+          .map(t => ({ hours_before: parseInt(t.hoursBefore, 10), refund_percent: parseInt(t.refundPercent, 10) }))
+          .sort((a, b) => b.hours_before - a.hours_before),
+        reschedule_window_hours: parseInt(lt.rescheduleWindowHours, 10),
+        client_reschedule_limit: parseInt(lt.clientRescheduleLimit, 10),
+        no_show_policy: lt.noShowPolicy,
+      };
       return [
-        { pro_id: pro.id, kind: 'single',  name, level: name, session_count: 1,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents,              compare_at_price_cents: null,          currency: 'usd', is_active: true, sort_order: sortBase },
-        { pro_id: pro.id, kind: 'package', name: '5-Session Pack',  level: name, session_count: 5,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 5  - 2500, compare_at_price_cents: priceCents * 5,  currency: 'usd', is_active: true, sort_order: sortBase + 100 },
-        { pro_id: pro.id, kind: 'package', name: '10-Session Pack', level: name, session_count: 10, duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 10 - 7500, compare_at_price_cents: priceCents * 10, currency: 'usd', is_active: true, sort_order: sortBase + 200 },
+        { pro_id: pro.id, kind: 'single',  name, level: name, session_count: 1,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents,              compare_at_price_cents: null,          currency: 'usd', is_active: true, sort_order: sortBase,       ...policy },
+        { pro_id: pro.id, kind: 'package', name: '5-Session Pack',  level: name, session_count: 5,  duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 5  - 2500, compare_at_price_cents: priceCents * 5,  currency: 'usd', is_active: true, sort_order: sortBase + 100, ...policy },
+        { pro_id: pro.id, kind: 'package', name: '10-Session Pack', level: name, session_count: 10, duration_minutes: durationMins, buffer_minutes: 15, price_cents: priceCents * 10 - 7500, compare_at_price_cents: priceCents * 10, currency: 'usd', is_active: true, sort_order: sortBase + 200, ...policy },
       ];
     });
 
@@ -365,34 +412,143 @@ export function EditProfileForm({ pro, services }: Props) {
           </div>
           <div className="lesson-types-list">
             {lessonTypes.map((lt, i) => (
-              <div key={i} className="lesson-type-row">
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Beginner, Intermediate…"
-                  value={lt.name}
-                  onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, name: e.target.value } : t))}
-                />
-                <div className="price-input-wrap lesson-type-price">
-                  <span className="price-prefix">$</span>
+              <div key={i}>
+                <div className="lesson-type-row">
                   <input
-                    type="number"
+                    type="text"
                     className="form-input"
-                    min="1"
-                    placeholder="0"
-                    value={lt.price}
-                    onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))}
+                    placeholder="e.g. Beginner, Intermediate…"
+                    value={lt.name}
+                    onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, name: e.target.value } : t))}
                   />
+                  <div className="price-input-wrap lesson-type-price">
+                    <span className="price-prefix">$</span>
+                    <input
+                      type="number"
+                      className="form-input"
+                      min="1"
+                      placeholder="0"
+                      value={lt.price}
+                      onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, price: e.target.value } : t))}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="lesson-type-policy-toggle"
+                    onClick={() => setExpandedPolicy(prev => ({ ...prev, [i]: !prev[i] }))}
+                    aria-expanded={!!expandedPolicy[i]}
+                  >
+                    {expandedPolicy[i] ? <ChevronUp size={14} /> : <ChevronDown size={14} />} Policy
+                  </button>
+                  <button
+                    type="button"
+                    className="lesson-type-remove"
+                    onClick={() => setLessonTypes(prev => prev.filter((_, j) => j !== i))}
+                    disabled={lessonTypes.length === 1}
+                    aria-label="Remove"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className="lesson-type-remove"
-                  onClick={() => setLessonTypes(prev => prev.filter((_, j) => j !== i))}
-                  disabled={lessonTypes.length === 1}
-                  aria-label="Remove"
-                >
-                  <Trash2 size={15} />
-                </button>
+
+                {expandedPolicy[i] && (
+                  <div className="lesson-type-policy-panel">
+                    <div className="form-grid-2">
+                      <div className="form-field">
+                        <label className="form-label">Cancellation window (hours before session)</label>
+                        <input
+                          type="number" min="0" className="form-input" value={lt.cancellationWindowHours}
+                          onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, cancellationWindowHours: e.target.value } : t))}
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">Client reschedule limit (per booking)</label>
+                        <input
+                          type="number" min="0" className="form-input" value={lt.clientRescheduleLimit}
+                          onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, clientRescheduleLimit: e.target.value } : t))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-grid-2">
+                      <div className="form-field">
+                        <label className="form-label">Reschedule window (hours before session)</label>
+                        <input
+                          type="number" min="0" className="form-input" value={lt.rescheduleWindowHours}
+                          onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, rescheduleWindowHours: e.target.value } : t))}
+                        />
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label">No-show handling</label>
+                        <div className="session-mode-group">
+                          {(['forfeit', 'credit'] as const).map(policy => (
+                            <label key={policy} className={`session-mode-option ${lt.noShowPolicy === policy ? 'session-mode-option--active' : ''}`}>
+                              <input
+                                type="radio" name={`no-show-${i}`} value={policy} checked={lt.noShowPolicy === policy}
+                                onChange={() => setLessonTypes(prev => prev.map((t, j) => j === i ? { ...t, noShowPolicy: policy } : t))}
+                                style={{ display: 'none' }}
+                              />
+                              {policy === 'forfeit' ? 'No refund' : 'Make-up credit'}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="form-field">
+                      <label className="form-label" style={{ marginBottom: 4 }}>Refund schedule</label>
+                      <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: -2, marginBottom: 4 }}>
+                        Refund % applied based on notice given. Highest matching threshold wins.
+                      </p>
+                      {lt.cancellationRefundTiers.map((tier, ti) => (
+                        <div key={ti} className="policy-tier-row">
+                          <span style={{ fontSize: 13, color: 'var(--ink-soft)', flexShrink: 0 }}>≥</span>
+                          <input
+                            type="number" min="0" className="form-input" placeholder="Hours before"
+                            value={tier.hoursBefore}
+                            onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i
+                              ? { ...t, cancellationRefundTiers: t.cancellationRefundTiers.map((tr, k) => k === ti ? { ...tr, hoursBefore: e.target.value } : tr) }
+                              : t))}
+                          />
+                          <span style={{ fontSize: 13, color: 'var(--ink-soft)', flexShrink: 0 }}>hrs →</span>
+                          <div className="price-input-wrap lesson-type-price">
+                            <input
+                              type="number" min="0" max="100" className="form-input" placeholder="100"
+                              value={tier.refundPercent}
+                              onChange={e => setLessonTypes(prev => prev.map((t, j) => j === i
+                                ? { ...t, cancellationRefundTiers: t.cancellationRefundTiers.map((tr, k) => k === ti ? { ...tr, refundPercent: e.target.value } : tr) }
+                                : t))}
+                            />
+                            <span className="price-prefix" style={{ left: 'auto', right: 10 }}>%</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="lesson-type-remove"
+                            onClick={() => setLessonTypes(prev => prev.map((t, j) => j === i
+                              ? { ...t, cancellationRefundTiers: t.cancellationRefundTiers.filter((_, k) => k !== ti) }
+                              : t))}
+                            disabled={lt.cancellationRefundTiers.length === 1}
+                            aria-label="Remove tier"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                      {lt.cancellationRefundTiers.length < 4 && (
+                        <button
+                          type="button"
+                          className="button"
+                          style={{ marginTop: 4, fontSize: 13, minHeight: 32, padding: '0 12px', alignSelf: 'flex-start' }}
+                          onClick={() => setLessonTypes(prev => prev.map((t, j) => j === i
+                            ? { ...t, cancellationRefundTiers: [...t.cancellationRefundTiers, { hoursBefore: '', refundPercent: '' }] }
+                            : t))}
+                        >
+                          <Plus size={13} /> Add tier
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -401,7 +557,7 @@ export function EditProfileForm({ pro, services }: Props) {
               type="button"
               className="button"
               style={{ marginTop: 10, fontSize: 13, minHeight: 36, padding: '0 14px' }}
-              onClick={() => setLessonTypes(prev => [...prev, { name: '', price: '' }])}
+              onClick={() => setLessonTypes(prev => [...prev, { name: '', price: '', ...defaultPolicy() }])}
             >
               <Plus size={14} /> Add lesson type
             </button>

@@ -19,6 +19,11 @@ export type Pro = {
   booking_mode: "instant" | "request";
 };
 
+export type CancellationRefundTier = {
+  hours_before: number;
+  refund_percent: number;
+};
+
 export type Service = {
   id: string;
   pro_id: string;
@@ -34,6 +39,11 @@ export type Service = {
   currency: string;
   is_active: boolean;
   sort_order: number;
+  cancellation_window_hours: number;
+  cancellation_refund_tiers: CancellationRefundTier[];
+  reschedule_window_hours: number;
+  client_reschedule_limit: number;
+  no_show_policy: "forfeit" | "credit";
 };
 
 export type AvailabilityRule = {
@@ -99,6 +109,8 @@ export type RescheduleRequest = {
   new_starts_at: string;
   new_ends_at: string;
   status: 'pending' | 'accepted' | 'declined' | 'expired';
+  initiated_by: 'pro' | 'client';
+  reason: string | null;
   created_at: string;
 };
 

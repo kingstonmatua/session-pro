@@ -37,14 +37,18 @@ export default async function BookingCancelPage({ searchParams }: PageProps) {
   const admin = createAdminClient();
   const { data: booking } = await admin
     .from('bookings')
-    .select('id, status, starts_at, ends_at, pros(full_name, timezone, club_or_business, slug), services(name)')
+    .select('id, status, starts_at, ends_at, price_cents, pros(full_name, timezone, club_or_business, slug), services(name, cancellation_window_hours, cancellation_refund_tiers)')
     .eq('id', booking_id)
     .single();
 
   if (!booking) return <InvalidLink />;
 
   const pro = booking.pros as unknown as { full_name: string; timezone: string; club_or_business: string | null; slug: string };
-  const service = booking.services as unknown as { name: string };
+  const service = booking.services as unknown as {
+    name: string;
+    cancellation_window_hours: number;
+    cancellation_refund_tiers: { hours_before: number; refund_percent: number }[];
+  };
 
   const start = new Date(booking.starts_at);
   const end = new Date(booking.ends_at);
@@ -57,10 +61,21 @@ export default async function BookingCancelPage({ searchParams }: PageProps) {
   const fmtTime = (d: Date) =>
     new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
 
+  const windowHours = service.cancellation_window_hours;
   const hoursUntil = (start.getTime() - Date.now()) / (1000 * 60 * 60);
   const alreadyCancelled = booking.status === 'cancelled';
-  const windowPassed = !alreadyCancelled && hoursUntil < 24;
+  const windowPassed = !alreadyCancelled && hoursUntil < windowHours;
   const canCancel = !alreadyCancelled && !windowPassed;
+
+  const tiers = [...(service.cancellation_refund_tiers ?? [{ hours_before: 0, refund_percent: 100 }])]
+    .sort((a, b) => b.hours_before - a.hours_before);
+  const tier = tiers.find(t => hoursUntil >= t.hours_before) ?? tiers[tiers.length - 1];
+  const refundPercent = tier?.refund_percent ?? 100;
+  const refundCopy = refundPercent <= 0
+    ? 'No refund will be issued.'
+    : refundPercent >= 100
+      ? 'A full refund will be issued immediately.'
+      : `A ${refundPercent}% refund will be issued immediately.`;
 
   return (
     <main>
@@ -82,8 +97,8 @@ export default async function BookingCancelPage({ searchParams }: PageProps) {
             {alreadyCancelled
               ? 'This booking has already been cancelled.'
               : windowPassed
-              ? 'Cancellations must be made at least 24 hours before the session.'
-              : 'Please review your booking details. A full refund will be issued immediately.'}
+              ? `Cancellations must be made at least ${windowHours} hours before the session.`
+              : `Please review your booking details. ${refundCopy}`}
           </p>
 
           <div className="booking-confirm-details">

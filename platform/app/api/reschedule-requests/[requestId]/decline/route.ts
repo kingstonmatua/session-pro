@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendRescheduleResultToPro } from '@/lib/email';
+import { sendRescheduleResultToPro, sendRescheduleResultToClient } from '@/lib/email';
 
 type Params = { params: Promise<{ requestId: string }> };
 
@@ -40,8 +40,21 @@ export async function POST(_req: Request, { params }: Params) {
     .select('full_name, timezone, user_id')
     .eq('id', booking.pro_id)
     .single();
+  if (!pro) return NextResponse.json({ ok: true });
 
-  if (pro?.user_id) {
+  // Pro-initiated requests are declined by the client — notify the pro.
+  // Client-initiated requests are declined by the pro — notify the client.
+  if (rescheduleRequest.initiated_by === 'client') {
+    await sendRescheduleResultToClient({
+      clientEmail: booking.clients.email,
+      clientName: booking.clients.full_name,
+      proName: pro.full_name,
+      serviceName: booking.services.name,
+      requestedStartsAt: rescheduleRequest.new_starts_at,
+      timezone: pro.timezone,
+      accepted: false,
+    });
+  } else if (pro.user_id) {
     const { data: { user: proUser } } = await admin.auth.admin.getUserById(pro.user_id);
     if (proUser?.email) {
       await sendRescheduleResultToPro({

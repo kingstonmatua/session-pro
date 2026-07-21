@@ -8,6 +8,8 @@ import { RebookButton } from './RebookButton';
 import { RescheduleButton } from './RescheduleButton';
 import { SendLinkButton } from './SendLinkButton';
 import { RequestActionButtons } from './RequestActionButtons';
+import { RescheduleRequestActionButtons } from './RescheduleRequestActionButtons';
+import { ResendPaymentLinkButton } from './ResendPaymentLinkButton';
 import { InviteRecurringButton } from './InviteRecurringButton';
 import { CancelRecurringButton } from './CancelRecurringButton';
 
@@ -51,10 +53,10 @@ export default async function BookingsPage() {
 
   if (!pro) redirect('/onboarding');
 
-  const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }, { data: recurringBookings }] = await Promise.all([
+  const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }, { data: recurringBookings }, { data: pendingReschedules }, { data: awaitingPayment }] = await Promise.all([
     supabase
       .from('bookings')
-      .select('*, clients(full_name, email), services(name, duration_minutes)')
+      .select('*, clients(full_name, email), services(name, duration_minutes, no_show_policy)')
       .eq('pro_id', pro.id)
       .in('status', ['confirmed', 'pending_payment', 'completed', 'no_show'])
       .order('starts_at', { ascending: true }),
@@ -76,6 +78,19 @@ export default async function BookingsPage() {
       .eq('pro_id', pro.id)
       .in('status', ['pending_client', 'active'])
       .order('created_at', { ascending: false }),
+    supabase
+      .from('reschedule_requests')
+      .select('id, new_starts_at, reason, bookings(clients(full_name, email), services(name))')
+      .eq('pro_id', pro.id)
+      .eq('status', 'pending')
+      .eq('initiated_by', 'client')
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('booking_requests')
+      .select('id, client_name, client_email, requested_starts_at, payment_expires_at, services(name)')
+      .eq('pro_id', pro.id)
+      .eq('status', 'accepted')
+      .order('payment_expires_at', { ascending: true }),
   ]);
 
   const now = new Date().toISOString();
@@ -121,6 +136,74 @@ export default async function BookingsPage() {
                     {req.notes && (
                       <div style={{ padding: '8px 12px 10px', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderRadius: '0 0 8px 8px', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
                         <strong style={{ color: 'var(--ink)', marginRight: 6 }}>Notes:</strong>{req.notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Awaiting payment */}
+        {(awaitingPayment ?? []).length > 0 && (
+          <div className="dashboard-card" style={{ marginBottom: 16, borderColor: 'var(--amber)' }}>
+            <h3 style={{ color: 'var(--amber)' }}>Awaiting payment ({awaitingPayment!.length})</h3>
+            <div className="bookings-list">
+              {awaitingPayment!.map((req) => {
+                const service = req.services as unknown as { name: string } | null;
+                const { date, time } = formatBookingTime(req.requested_starts_at, pro.timezone);
+                const expired = req.payment_expires_at ? new Date(req.payment_expires_at) < new Date() : false;
+                return (
+                  <div key={req.id} className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
+                    <span>
+                      <strong style={{ fontSize: 14 }}>{date}</strong>
+                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>
+                    </span>
+                    <span>
+                      <strong style={{ fontSize: 14 }}>{req.client_name}</strong>
+                      <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{req.client_email}</span>
+                    </span>
+                    <span style={{ fontSize: 13 }}>
+                      {service?.name ?? '—'}
+                      <br /><span style={{ color: expired ? '#dc2626' : 'var(--ink-soft)' }}>{expired ? 'Payment link expired' : 'Payment link sent'}</span>
+                    </span>
+                    <ResendPaymentLinkButton requestId={req.id} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Pending reschedule requests */}
+        {(pendingReschedules ?? []).length > 0 && (
+          <div className="dashboard-card" style={{ marginBottom: 16, borderColor: 'var(--amber)' }}>
+            <h3 style={{ color: 'var(--amber)' }}>Reschedule requests ({pendingReschedules!.length})</h3>
+            <div className="bookings-list">
+              {pendingReschedules!.map((req) => {
+                const booking = req.bookings as unknown as {
+                  clients: { full_name: string; email: string } | null;
+                  services: { name: string } | null;
+                } | null;
+                const { date, time } = formatBookingTime(req.new_starts_at, pro.timezone);
+                return (
+                  <div key={req.id} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <div className="booking-row" style={{ gridTemplateColumns: '2fr 2fr 2fr auto' }}>
+                      <span>
+                        <strong style={{ fontSize: 14 }}>{date}</strong>
+                        <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{time}</span>
+                      </span>
+                      <span>
+                        <strong style={{ fontSize: 14 }}>{booking?.clients?.full_name ?? '—'}</strong>
+                        <br /><span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{booking?.clients?.email ?? '—'}</span>
+                      </span>
+                      <span style={{ fontSize: 13 }}>{booking?.services?.name ?? '—'}</span>
+                      <RescheduleRequestActionButtons requestId={req.id} />
+                    </div>
+                    {req.reason && (
+                      <div style={{ padding: '8px 12px 10px', background: 'var(--surface)', borderTop: '1px solid var(--border)', borderRadius: '0 0 8px 8px', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--ink)', marginRight: 6 }}>Reason:</strong>{req.reason}
                       </div>
                     )}
                   </div>
@@ -355,6 +438,7 @@ export default async function BookingsPage() {
                             bookingId={booking.id}
                             clientName={booking.clients?.full_name ?? 'Client'}
                             sessionName={booking.services?.name ?? 'session'}
+                            noShowPolicy={booking.services?.no_show_policy ?? 'forfeit'}
                           />
                         ) : (
                           <span className="status-badge status-past">Completed</span>

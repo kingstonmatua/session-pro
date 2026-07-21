@@ -154,7 +154,12 @@ function makeService(
     compare_at_price_cents: compareAtPriceCents,
     currency: "usd",
     is_active: true,
-    sort_order: sortOrder
+    sort_order: sortOrder,
+    cancellation_window_hours: 24,
+    cancellation_refund_tiers: [{ hours_before: 0, refund_percent: 100 }],
+    reschedule_window_hours: 24,
+    client_reschedule_limit: 1,
+    no_show_policy: "forfeit"
   };
 }
 

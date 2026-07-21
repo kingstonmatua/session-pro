@@ -31,10 +31,10 @@ export async function POST(_req: Request, { params }: Params) {
     .select('*, services(*)')
     .eq('id', requestId)
     .eq('pro_id', pro.id)
-    .eq('status', 'pending')
+    .eq('status', 'accepted')
     .single();
 
-  if (!request) return NextResponse.json({ error: 'Request not found or already processed' }, { status: 404 });
+  if (!request) return NextResponse.json({ error: 'Request not found or not awaiting payment' }, { status: 404 });
 
   const service = request.services as {
     id: string; name: string; price_cents: number; duration_minutes: number;
@@ -43,6 +43,17 @@ export async function POST(_req: Request, { params }: Params) {
 
   const startsAt = request.requested_starts_at;
   const endsAt = request.requested_ends_at;
+
+  // Release any stale hold from the original (now-expired) link so it doesn't
+  // conflict with itself when we reserve a fresh one below.
+  await admin
+    .from('booking_holds')
+    .update({ status: 'released' })
+    .eq('pro_id', pro.id)
+    .eq('service_id', service.id)
+    .eq('starts_at', startsAt)
+    .eq('ends_at', endsAt)
+    .eq('status', 'active');
 
   const result = await createBookingRequestCheckout({
     admin,
@@ -60,7 +71,7 @@ export async function POST(_req: Request, { params }: Params) {
 
   await admin
     .from('booking_requests')
-    .update({ status: 'accepted', payment_expires_at: result.paymentExpiresAt, stripe_checkout_session_id: result.checkoutSessionId })
+    .update({ payment_expires_at: result.paymentExpiresAt, stripe_checkout_session_id: result.checkoutSessionId })
     .eq('id', requestId);
 
   await sendPaymentLinkToClient({

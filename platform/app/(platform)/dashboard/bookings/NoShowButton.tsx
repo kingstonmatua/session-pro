@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, UserX } from 'lucide-react';
 
-type Props = { bookingId: string; clientName: string; sessionName: string };
+type NoShowAction = 'none' | 'refund' | 'credit';
+type Props = { bookingId: string; clientName: string; sessionName: string; noShowPolicy: 'forfeit' | 'credit' };
 
-export function NoShowButton({ bookingId, clientName, sessionName }: Props) {
+export function NoShowButton({ bookingId, clientName, sessionName, noShowPolicy }: Props) {
   const [open, setOpen] = useState(false);
-  const [refund, setRefund] = useState(false);
+  const [action, setAction] = useState<NoShowAction>('none');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -19,7 +20,7 @@ export function NoShowButton({ bookingId, clientName, sessionName }: Props) {
       const res = await fetch(`/api/bookings/${bookingId}/no-show`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refund }),
+        body: JSON.stringify({ action }),
       });
       if (res.ok) {
         setOpen(false);
@@ -34,7 +35,7 @@ export function NoShowButton({ bookingId, clientName, sessionName }: Props) {
   return (
     <>
       <button
-        onClick={() => { setError(null); setRefund(false); setOpen(true); }}
+        onClick={() => { setError(null); setAction(noShowPolicy === 'credit' ? 'credit' : 'none'); setOpen(true); }}
         className="button"
         style={{ fontSize: 13, minHeight: 32, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 5 }}
       >
@@ -56,16 +57,25 @@ export function NoShowButton({ bookingId, clientName, sessionName }: Props) {
                 <strong>{clientName}</strong> didn&rsquo;t attend their{' '}
                 <strong>{sessionName}</strong> session. They&rsquo;ll receive a notification email.
               </p>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginTop: 12 }}>
-                <input
-                  type="checkbox"
-                  checked={refund}
-                  onChange={e => setRefund(e.target.checked)}
-                  disabled={pending}
-                  style={{ width: 15, height: 15, flexShrink: 0 }}
-                />
-                Issue a full refund
-              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+                {([
+                  { value: 'none' as const, label: 'No action — forfeit the session' },
+                  { value: 'refund' as const, label: 'Issue a full refund' },
+                  { value: 'credit' as const, label: 'Issue a make-up session credit' },
+                ]).map(opt => (
+                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="no-show-action"
+                      checked={action === opt.value}
+                      onChange={() => setAction(opt.value)}
+                      disabled={pending}
+                      style={{ width: 15, height: 15, flexShrink: 0 }}
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
               <p className="cancel-note" style={{ marginTop: 10 }}>This cannot be undone.</p>
             </div>
 

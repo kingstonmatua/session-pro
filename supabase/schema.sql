@@ -243,6 +243,48 @@ create trigger set_payments_updated_at
 before update on public.payments
 for each row execute function public.set_updated_at();
 
+-- Credit ledger for pre-paid session packages (and, later, no-show make-up credits).
+-- Formalized here on 2026-07-20: this table already exists live in Supabase but was
+-- never added to this file. Columns reconstructed from how the app reads/writes it
+-- (app/api/webhooks/stripe/route.ts, app/api/enrollments/**) — diff against the live
+-- schema before running this file against an existing database.
+create table public.package_enrollments (
+  id uuid primary key default gen_random_uuid(),
+  pro_id uuid not null references public.pros(id) on delete cascade,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  service_id uuid not null references public.services(id) on delete restrict,
+  sessions_total integer not null,
+  sessions_used integer not null default 0,
+  -- 'cancelled' is declared in types/sessionpro.ts but not written by any route today.
+  status text not null default 'active' check (status in ('active', 'completed', 'cancelled')),
+  payment_id uuid references public.payments(id) on delete set null,
+  created_at timestamptz not null default now(),
+  constraint package_enrollments_sessions_total_positive check (sessions_total > 0),
+  constraint package_enrollments_sessions_used_nonnegative check (sessions_used >= 0)
+);
+
+create index package_enrollments_pro_idx on public.package_enrollments (pro_id);
+create index package_enrollments_client_idx on public.package_enrollments (client_id);
+
+-- Reschedule proposals on an existing booking. Formalized here on 2026-07-20: this
+-- table already exists live in Supabase but was never added to this file. Columns
+-- reconstructed from app/api/reschedule-requests/** — diff against the live schema
+-- before running this file against an existing database.
+create table public.reschedule_requests (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  pro_id uuid not null references public.pros(id) on delete cascade,
+  new_starts_at timestamptz not null,
+  new_ends_at timestamptz not null,
+  -- 'expired' is declared in types/sessionpro.ts but not written by any route today.
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'expired')),
+  created_at timestamptz not null default now(),
+  constraint reschedule_requests_valid_range check (new_starts_at < new_ends_at)
+);
+
+create index reschedule_requests_booking_idx on public.reschedule_requests (booking_id);
+create index reschedule_requests_pro_idx on public.reschedule_requests (pro_id);
+
 create table public.reviews (
   id uuid primary key default gen_random_uuid(),
   pro_id uuid not null references public.pros(id) on delete cascade,
@@ -297,6 +339,8 @@ alter table public.clients enable row level security;
 alter table public.booking_holds enable row level security;
 alter table public.bookings enable row level security;
 alter table public.payments enable row level security;
+alter table public.package_enrollments enable row level security;
+alter table public.reschedule_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.pro_links enable row level security;
 
@@ -469,6 +513,28 @@ using (
     from public.bookings
     join public.pros on pros.id = bookings.pro_id
     where bookings.id = payments.booking_id
+      and pros.user_id = (select auth.uid())
+  )
+);
+
+create policy "Pros can read their own package enrollments"
+on public.package_enrollments for select
+to authenticated
+using (
+  exists (
+    select 1 from public.pros
+    where pros.id = package_enrollments.pro_id
+      and pros.user_id = (select auth.uid())
+  )
+);
+
+create policy "Pros can read their own reschedule requests"
+on public.reschedule_requests for select
+to authenticated
+using (
+  exists (
+    select 1 from public.pros
+    where pros.id = reschedule_requests.pro_id
       and pros.user_id = (select auth.uid())
   )
 );
