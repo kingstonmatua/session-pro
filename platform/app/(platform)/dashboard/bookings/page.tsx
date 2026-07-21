@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ArrowLeft, CalendarDays, CircleDollarSign, Clock, CalendarArrowDown, Package, Repeat2 } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -54,6 +55,8 @@ export default async function BookingsPage() {
 
   if (!pro) redirect('/onboarding');
 
+  const admin = createAdminClient();
+
   const [{ data: bookings }, { data: enrollments }, { data: pendingRequests }, { data: recurringBookings }, { data: pendingReschedules }, { data: awaitingPayment }] = await Promise.all([
     supabase
       .from('bookings')
@@ -67,7 +70,7 @@ export default async function BookingsPage() {
       .eq('pro_id', pro.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
-    supabase
+    admin
       .from('booking_requests')
       .select('id, client_name, client_email, requested_starts_at, requested_ends_at, notes, services(name)')
       .eq('pro_id', pro.id)
@@ -79,14 +82,14 @@ export default async function BookingsPage() {
       .eq('pro_id', pro.id)
       .in('status', ['pending_client', 'active'])
       .order('created_at', { ascending: false }),
-    supabase
+    admin
       .from('reschedule_requests')
       .select('id, new_starts_at, reason, bookings(clients(full_name, email), services(name))')
       .eq('pro_id', pro.id)
       .eq('status', 'pending')
       .eq('initiated_by', 'client')
       .order('created_at', { ascending: true }),
-    supabase
+    admin
       .from('booking_requests')
       .select('id, client_name, client_email, requested_starts_at, payment_expires_at, services(name)')
       .eq('pro_id', pro.id)
