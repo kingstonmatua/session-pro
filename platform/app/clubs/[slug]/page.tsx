@@ -63,7 +63,7 @@ export default async function ClubPage({ params }: PageProps) {
           <div className="container club-hero-inner">
             <div className="club-logo">
               {logoSrc ? (
-                <Image src={logoSrc} alt={`${club.name} logo`} width={88} height={88} />
+                <Image src={logoSrc} alt={`${club.name} logo`} fill sizes="(max-width: 640px) 96px, 160px" priority />
               ) : (
                 <div className="photo-initials" style={{ fontSize: 28 }}>{initials}</div>
               )}

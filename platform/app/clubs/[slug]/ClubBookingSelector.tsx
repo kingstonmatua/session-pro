@@ -74,6 +74,7 @@ export function ClubBookingSelector({ pros, demoPaymentLink }: Props) {
             availability={selectedPro.availability}
             bookingMode={selectedPro.booking_mode ?? 'instant'}
             demoPaymentLink={demoPaymentLink}
+            stepOffset={1}
           />
         </div>
       )}

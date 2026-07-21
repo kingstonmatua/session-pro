@@ -566,23 +566,22 @@ h1 {
 }
 
 .club-hero-inner {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
   gap: 20px;
 }
 
 .club-logo {
-  width: 88px;
-  height: 88px;
+  position: relative;
+  width: auto;
+  aspect-ratio: 1 / 1;
   border-radius: 16px;
   overflow: hidden;
-  flex-shrink: 0;
   border: 1px solid var(--border);
 }
 
 .club-logo img {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
 }
 

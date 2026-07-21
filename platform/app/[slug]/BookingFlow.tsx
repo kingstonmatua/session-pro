@@ -21,6 +21,7 @@ type Props = {
   demoPaymentLink?: string;
   enrollmentMode?: EnrollmentMode | null;
   bookingMode?: 'instant' | 'request';
+  stepOffset?: number;
 };
 
 const MONTHS_LONG = [
@@ -29,7 +30,8 @@ const MONTHS_LONG = [
 ];
 const DAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function BookingFlow({ pro, services, availability, demoPaymentLink, enrollmentMode, bookingMode }: Props) {
+export function BookingFlow({ pro, services, availability, demoPaymentLink, enrollmentMode, bookingMode, stepOffset = 0 }: Props) {
+  const step = (n: number) => String(n + stepOffset).padStart(2, '0');
   const isRequestMode = bookingMode === 'request' && !enrollmentMode && !demoPaymentLink;
   const singles = services.filter((s) => s.kind === 'single');
   const packages = services.filter((s) => s.kind === 'package');
@@ -204,7 +206,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
         {enrollmentMode ? (
           <section className="panel">
             <div className="section-heading">
-              <span>01</span>
+              <span>{step(1)}</span>
               <div>
                 <h2>{enrollmentMode.service.name}</h2>
                 <p>Session {enrollmentMode.sessionsUsed + 1} of {enrollmentMode.sessionsTotal} &mdash; already paid. Pick a date and time below.</p>
@@ -215,7 +217,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
           <>
             <section className="panel">
               <div className="section-heading">
-                <span>01</span>
+                <span>{step(1)}</span>
                 <div>
                   <h2>Choose a session</h2>
                   <p>Select the lesson that fits your game. Packages are available for clients who want consistent progress.</p>
@@ -246,7 +248,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
 
             <section className="section panel">
               <div className="section-heading">
-                <span>02</span>
+                <span>{step(2)}</span>
                 <div>
                   <h2>Packages</h2>
                   <p>Save when you commit to multiple sessions up front.</p>
@@ -292,7 +294,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
 
         <section className="section panel">
           <div className="section-heading">
-            <span>{enrollmentMode ? '02' : '03'}</span>
+            <span>{enrollmentMode ? step(2) : step(3)}</span>
             <div>
               <h2>
                 {sessionLabel
