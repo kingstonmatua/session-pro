@@ -131,41 +131,53 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {/* Stripe Connect */}
         <div className="dashboard-card" style={{ marginBottom: 16 }}>
           <h3>Payouts</h3>
-          {connectStatus === 'active' && (
+          {pro.club_id ? (
             <div className="connect-status connect-status--active">
               <CheckCircle2 size={18} />
               <div>
-                <strong>Stripe connected</strong>
-                <p>You&rsquo;ll receive 90% of each booking automatically. Platform fee: 10%.</p>
+                <strong>Paid through your club</strong>
+                <p>Your club receives 100% of every booking and handles your payout directly — no separate Stripe account needed.</p>
               </div>
-              <Link
-                href="/api/stripe/express-link"
-                className="button"
-                style={{ fontSize: 14, minHeight: 38, padding: '0 14px', whiteSpace: 'nowrap' }}
-              >
-                <ExternalLink size={14} /> View payouts
-              </Link>
             </div>
-          )}
-          {connectStatus === 'pending' && (
-            <div className="connect-status connect-status--pending">
-              <AlertCircle size={18} />
-              <div>
-                <strong>Setup incomplete</strong>
-                <p>Finish your Stripe account to start receiving payouts.</p>
-              </div>
-              <ConnectStripeButton label="Complete setup" />
-            </div>
-          )}
-          {connectStatus === 'not_connected' && (
-            <div className="connect-status connect-status--none">
-              <Banknote size={18} />
-              <div>
-                <strong>Connect your bank account</strong>
-                <p>Set up Stripe to receive 90% of each booking directly to your bank. Takes about 2 minutes.</p>
-              </div>
-              <ConnectStripeButton label="Set up payouts" />
-            </div>
+          ) : (
+            <>
+              {connectStatus === 'active' && (
+                <div className="connect-status connect-status--active">
+                  <CheckCircle2 size={18} />
+                  <div>
+                    <strong>Stripe connected</strong>
+                    <p>You&rsquo;ll receive 90% of each booking automatically. Platform fee: 10%.</p>
+                  </div>
+                  <Link
+                    href="/api/stripe/express-link"
+                    className="button"
+                    style={{ fontSize: 14, minHeight: 38, padding: '0 14px', whiteSpace: 'nowrap' }}
+                  >
+                    <ExternalLink size={14} /> View payouts
+                  </Link>
+                </div>
+              )}
+              {connectStatus === 'pending' && (
+                <div className="connect-status connect-status--pending">
+                  <AlertCircle size={18} />
+                  <div>
+                    <strong>Setup incomplete</strong>
+                    <p>Finish your Stripe account to start receiving payouts.</p>
+                  </div>
+                  <ConnectStripeButton label="Complete setup" />
+                </div>
+              )}
+              {connectStatus === 'not_connected' && (
+                <div className="connect-status connect-status--none">
+                  <Banknote size={18} />
+                  <div>
+                    <strong>Connect your bank account</strong>
+                    <p>Set up Stripe to receive 90% of each booking directly to your bank. Takes about 2 minutes.</p>
+                  </div>
+                  <ConnectStripeButton label="Set up payouts" />
+                </div>
+              )}
+            </>
           )}
         </div>
 

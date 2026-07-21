@@ -7,6 +7,7 @@ import { createBrowserClient } from '@supabase/ssr';
 const LINKS = [
   { href: '/admin',          label: 'Overview' },
   { href: '/admin/pros',     label: 'Pros' },
+  { href: '/admin/clubs',    label: 'Clubs' },
   { href: '/admin/bookings', label: 'Bookings' },
   { href: '/admin/reviews',  label: 'Reviews' },
 ];

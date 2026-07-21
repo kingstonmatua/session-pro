@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, getIP } from '@/lib/rateLimit';
+import { resolveConnectAccount } from '@/lib/clubBilling';
 
 function parseSlotToISO(dateStr: string, timeSlot: string, timezone: string): string {
   const [time, ampm] = timeSlot.split(' ');
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
   const supabase = createAdminClient();
 
   const [{ data: pro, error: proError }, { data: service, error: serviceError }] = await Promise.all([
-    supabase.from('pros').select('id, full_name, timezone, slug, status, stripe_connect_account_id').eq('id', proId).single(),
+    supabase.from('pros').select('id, full_name, timezone, slug, status, stripe_connect_account_id, club_id').eq('id', proId).single(),
     supabase.from('services').select('*').eq('id', serviceId).eq('is_active', true).single(),
   ]);
 
@@ -173,18 +174,15 @@ export async function POST(req: Request) {
     ? `http://${host}`
     : `https://${host}`);
 
-  // Check if pro has a fully enabled Stripe Connect account
-  let connectAccountId: string | null = null;
-  if (pro.stripe_connect_account_id) {
-    try {
-      const account = await stripe.accounts.retrieve(pro.stripe_connect_account_id as string);
-      if (account.charges_enabled) connectAccountId = pro.stripe_connect_account_id as string;
-    } catch {
-      // proceed without Connect
-    }
+  // Club pros route 100% to their club's Connect account with no platform fee;
+  // solo pros keep the usual 90/10 split via their own Connect account.
+  let club: { stripe_connect_account_id: string | null } | null = null;
+  if (pro.club_id) {
+    const { data: clubRow } = await supabase.from('clubs').select('stripe_connect_account_id').eq('id', pro.club_id).single();
+    club = clubRow;
   }
-
-  const platformFeeCents = Math.round(service.price_cents * 0.10);
+  const { connectAccountId, feePercent } = await resolveConnectAccount(stripe, pro, club);
+  const platformFeeCents = Math.round(service.price_cents * feePercent);
 
   let session: Stripe.Checkout.Session;
   try {

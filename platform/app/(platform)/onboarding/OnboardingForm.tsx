@@ -178,31 +178,59 @@ export default function OnboardingForm() {
       return;
     }
 
-    // Insert pro profile
-    const { data: pro, error: proError } = await supabase
-      .from('pros')
-      .insert({
-        user_id: user.id,
-        slug,
-        full_name: fullName.trim(),
-        discipline: discipline.trim(),
-        title: title.trim() || null,
-        club_or_business: club.trim() || null,
-        bio: bio.trim() || null,
-        location_city: city.trim(),
-        location_region: region.trim(),
-        status: 'active',
-      })
-      .select('id')
-      .single();
+    let proId: string;
 
-    if (proError) {
-      setError(proError.message.includes('duplicate') ? 'That profile URL is already taken. Try a different name.' : proError.message);
-      setLoading(false);
-      return;
+    if (user.user_metadata?.club_id) {
+      // Invited by a club — the club_id is verified server-side from this
+      // account's own invite metadata, never trusted from client input.
+      const res = await fetch('/api/onboarding/complete-club-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          fullName: fullName.trim(),
+          discipline: discipline.trim(),
+          title: title.trim() || null,
+          clubOrBusiness: club.trim() || null,
+          bio: bio.trim() || null,
+          city: city.trim(),
+          region: region.trim(),
+        }),
+      });
+      const resBody = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(resBody.error ?? 'Something went wrong.');
+        setLoading(false);
+        return;
+      }
+      proId = resBody.proId;
+    } else {
+      // Insert pro profile
+      const { data: pro, error: proError } = await supabase
+        .from('pros')
+        .insert({
+          user_id: user.id,
+          slug,
+          full_name: fullName.trim(),
+          discipline: discipline.trim(),
+          title: title.trim() || null,
+          club_or_business: club.trim() || null,
+          bio: bio.trim() || null,
+          location_city: city.trim(),
+          location_region: region.trim(),
+          status: 'active',
+        })
+        .select('id')
+        .single();
+
+      if (proError) {
+        setError(proError.message.includes('duplicate') ? 'That profile URL is already taken. Try a different name.' : proError.message);
+        setLoading(false);
+        return;
+      }
+
+      proId = pro.id;
     }
-
-    const proId = pro.id;
 
     // Upload profile photo if provided
     if (photoFile) {

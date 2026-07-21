@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendClientConfirmation, sendProNotification, sendReviewRequest, sendReminderEmail } from '@/lib/email';
+import { resolveConnectAccount } from '@/lib/clubBilling';
 
 
 export async function POST(req: Request) {
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
   const [{ data: hold }, { data: service }, { data: pro }] = await Promise.all([
     supabase.from('booking_holds').select('*').eq('id', holdId).single(),
     supabase.from('services').select('name, price_cents, currency, duration_minutes, kind, session_count').eq('id', serviceId).single(),
-    supabase.from('pros').select('full_name, timezone, club_or_business, user_id').eq('id', proId).single(),
+    supabase.from('pros').select('full_name, timezone, club_or_business, user_id, club_id, stripe_connect_account_id').eq('id', proId).single(),
   ]);
 
   if (!hold || hold.status !== 'active') {
@@ -81,7 +82,13 @@ export async function POST(req: Request) {
   }
 
   const priceCents = service.price_cents;
-  const platformFeeCents = Math.round(priceCents * 0.10);
+  let club: { stripe_connect_account_id: string | null } | null = null;
+  if (pro.club_id) {
+    const { data: clubRow } = await supabase.from('clubs').select('stripe_connect_account_id').eq('id', pro.club_id).single();
+    club = clubRow;
+  }
+  const { feePercent } = await resolveConnectAccount(stripe, pro, club);
+  const platformFeeCents = Math.round(priceCents * feePercent);
   const proPayoutCents = priceCents - platformFeeCents;
 
   // For package purchases, create an enrollment before the booking

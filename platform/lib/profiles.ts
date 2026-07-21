@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { AvailabilityRule, Pro, ProPageData, Review, Service } from "@/types/sessionpro";
+import type { AvailabilityRule, Club, ClubPageData, Pro, ProPageData, Review, Service } from "@/types/sessionpro";
 
 export const DEMO_PRO_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -75,6 +75,159 @@ export async function getProPageData(slug: string): Promise<ProPageData | null> 
   };
 }
 
+export const DEMO_CLUB_ID = "33333333-3333-4333-8333-333333333333";
+
+export async function getClubPageData(slug: string): Promise<ClubPageData | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return getClubDemoFallback(slug);
+
+  const { data: club, error: clubError } = await supabase
+    .from("clubs")
+    .select("*")
+    .eq("slug", slug)
+    .eq("status", "active")
+    .single<Club>();
+
+  if (clubError || !club) return getClubDemoFallback(slug);
+
+  const { data: pros } = await supabase
+    .from("pros")
+    .select("*")
+    .eq("club_id", club.id)
+    .eq("status", "active")
+    .order("full_name", { ascending: true })
+    .returns<Pro[]>();
+
+  const proIds = (pros ?? []).map((p) => p.id);
+  if (proIds.length === 0) {
+    return { club, pros: [] };
+  }
+
+  const [{ data: services }, { data: availability }] = await Promise.all([
+    supabase
+      .from("services")
+      .select("*")
+      .in("pro_id", proIds)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .returns<Service[]>(),
+    supabase
+      .from("availability_rules")
+      .select("*")
+      .in("pro_id", proIds)
+      .eq("is_active", true)
+      .returns<AvailabilityRule[]>(),
+  ]);
+
+  const proList = (pros ?? []).map((pro) => ({
+    ...pro,
+    services: (services ?? []).filter((s) => s.pro_id === pro.id),
+    availability: (availability ?? []).filter((a) => a.pro_id === pro.id),
+  }));
+
+  return { club, pros: proList };
+}
+
+function makeDemoPro(
+  id: string,
+  slug: string,
+  fullName: string,
+  title: string,
+  bio: string,
+  photoPath: string | null,
+  ratingAverage: number,
+  ratingCount: number,
+  sortBase: number
+): Pro & { services: Service[]; availability: AvailabilityRule[] } {
+  return {
+    id,
+    slug,
+    full_name: fullName,
+    discipline: "Golf Instruction",
+    title,
+    club_or_business: "Fairway Ridge Golf Club",
+    bio,
+    location_city: "Scottsdale",
+    location_region: "AZ",
+    timezone: "America/Phoenix",
+    session_mode: "in_person",
+    years_experience: 10,
+    profile_photo_path: photoPath,
+    rating_average: ratingAverage,
+    rating_count: ratingCount,
+    status: "active",
+    stripe_connect_account_id: null,
+    booking_mode: "instant",
+    club_id: DEMO_CLUB_ID,
+    services: [
+      makeService(id, "Beginner lesson", "Beginner", "single", 1, 10000, null, sortBase + 10),
+      makeService(id, "Advanced lesson", "Advanced", "single", 1, 12000, null, sortBase + 20),
+      makeService(id, "5-Session Pack", "Beginner", "package", 5, 47500, 50000, sortBase + 30),
+      makeService(id, "5-Session Pack", "Advanced", "package", 5, 57500, 60000, sortBase + 40),
+      makeService(id, "10-Session Pack", "Beginner", "package", 10, 90000, 100000, sortBase + 50),
+      makeService(id, "10-Session Pack", "Advanced", "package", 10, 110000, 120000, sortBase + 60),
+    ],
+    availability: ["mon", "tue", "wed", "thu", "fri", "sat"].map((day, index) => ({
+      id: `${id}-availability-${index}`,
+      pro_id: id,
+      day: day as AvailabilityRule["day"],
+      start_time: "07:00:00",
+      end_time: "17:00:00",
+      is_active: true,
+    })),
+  };
+}
+
+function getClubDemoFallback(slug: string): ClubPageData | null {
+  if (slug !== "demo") return null;
+
+  return {
+    club: {
+      id: DEMO_CLUB_ID,
+      user_id: null,
+      slug: "demo",
+      name: "Fairway Ridge Golf Club",
+      logo_path: null,
+      description: "Private lessons with our PGA and LPGA teaching staff — pick a pro below and book directly.",
+      stripe_connect_account_id: null,
+      status: "active",
+      plan_name: "Club",
+      monthly_fee_cents: null,
+      subscription_status: "active",
+      created_at: "2026-01-01T00:00:00Z",
+    },
+    pros: [
+      makeDemoPro(
+        "33333333-3333-4333-8333-333333333301",
+        "demo-marcus-reed",
+        "Marcus Reed",
+        "PGA Golf Professional",
+        "Marcus has over twelve years of teaching experience, specializing in helping golfers at every level build a more consistent, repeatable swing.",
+        "/images/marcus-reed.png",
+        4.9, 47, 100
+      ),
+      makeDemoPro(
+        "33333333-3333-4333-8333-333333333302",
+        "demo-diego-alvarez",
+        "Diego Alvarez",
+        "PGA Teaching Professional",
+        "Diego focuses on short game and course management, helping players shave strokes off their score through smarter decision-making.",
+        "/images/golf-pro.png",
+        4.8, 31, 200
+      ),
+      makeDemoPro(
+        "33333333-3333-4333-8333-333333333303",
+        "demo-priya-nandan",
+        "Priya Nandan",
+        "LPGA Teaching Professional",
+        "Priya works with beginners and juniors, building fundamentals through patient, encouraging instruction.",
+        null,
+        5.0, 19, 300
+      ),
+    ],
+  };
+}
+
 function getDemoFallback(slug: string): ProPageData | null {
   if (slug !== "marcusreed") {
     return null;
@@ -101,7 +254,8 @@ function getDemoFallback(slug: string): ProPageData | null {
       rating_count: 47,
       status: "active",
       stripe_connect_account_id: null,
-      booking_mode: "instant"
+      booking_mode: "instant",
+      club_id: null
     },
     services: [
       makeService(proId, "Beginner lesson", "Beginner", "single", 1, 10000, null, 10),

@@ -17,6 +17,27 @@ export type Pro = {
   status: "draft" | "active" | "paused" | "archived";
   stripe_connect_account_id: string | null;
   booking_mode: "instant" | "request";
+  club_id: string | null;
+};
+
+export type Club = {
+  id: string;
+  user_id: string | null;
+  slug: string;
+  name: string;
+  logo_path: string | null;
+  description: string | null;
+  stripe_connect_account_id: string | null;
+  status: "draft" | "active" | "paused";
+  plan_name: string | null;
+  monthly_fee_cents: number | null;
+  subscription_status: string;
+  created_at: string;
+};
+
+export type ClubPageData = {
+  club: Club;
+  pros: (Pro & { services: Service[]; availability: AvailabilityRule[] })[];
 };
 
 export type CancellationRefundTier = {

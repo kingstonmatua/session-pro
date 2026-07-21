@@ -536,6 +536,56 @@ h1 {
   font-weight: 800;
 }
 
+.club-pro-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.club-pro-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.club-pro-avatar .photo-initials {
+  font-size: 20px;
+  border-radius: 50%;
+}
+
+.club-pro-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.club-hero {
+  padding: 48px 0 24px;
+}
+
+.club-hero-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.club-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.club-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .service-topline {
   display: flex;
   align-items: flex-start;

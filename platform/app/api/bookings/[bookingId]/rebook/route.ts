@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendPaymentLinkToClient } from '@/lib/email';
+import { resolveConnectAccount } from '@/lib/clubBilling';
 
 type Params = { params: Promise<{ bookingId: string }> };
 
@@ -13,7 +14,7 @@ export async function POST(req: Request, { params }: Params) {
 
   const { data: pro } = await supabase
     .from('pros')
-    .select('id, full_name, timezone, slug, stripe_connect_account_id')
+    .select('id, full_name, timezone, slug, stripe_connect_account_id, club_id')
     .eq('user_id', user.id)
     .single();
   if (!pro) return NextResponse.json({ error: 'Pro not found' }, { status: 404 });
@@ -93,15 +94,13 @@ export async function POST(req: Request, { params }: Params) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
 
-  let connectAccountId: string | null = null;
-  if (pro.stripe_connect_account_id) {
-    try {
-      const account = await stripe.accounts.retrieve(pro.stripe_connect_account_id as string);
-      if (account.charges_enabled) connectAccountId = pro.stripe_connect_account_id as string;
-    } catch { /* proceed without Connect */ }
+  let club: { stripe_connect_account_id: string | null } | null = null;
+  if (pro.club_id) {
+    const { data: clubRow } = await admin.from('clubs').select('stripe_connect_account_id').eq('id', pro.club_id).single();
+    club = clubRow;
   }
-
-  const platformFeeCents = Math.round(service.price_cents * 0.10);
+  const { connectAccountId, feePercent } = await resolveConnectAccount(stripe, pro, club);
+  const platformFeeCents = Math.round(service.price_cents * feePercent);
 
   let session: Stripe.Checkout.Session;
   try {

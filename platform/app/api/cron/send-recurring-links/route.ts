@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendRecurringPaymentLink } from '@/lib/email';
+import { resolveConnectAccount } from '@/lib/clubBilling';
 
 export const runtime = 'nodejs';
 
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
   for (const recurring of recurrings) {
     try {
       const [{ data: pro }, { data: service }] = await Promise.all([
-        admin.from('pros').select('full_name, timezone, slug, stripe_connect_account_id').eq('id', recurring.pro_id).single(),
+        admin.from('pros').select('full_name, timezone, slug, stripe_connect_account_id, club_id').eq('id', recurring.pro_id).single(),
         admin.from('services').select('name, price_cents, currency').eq('id', recurring.service_id).single(),
       ]);
 
@@ -78,15 +79,13 @@ export async function GET(req: Request) {
 
       if (!hold) continue;
 
-      let connectAccountId: string | null = null;
-      if (pro.stripe_connect_account_id) {
-        try {
-          const account = await stripe.accounts.retrieve(pro.stripe_connect_account_id as string);
-          if (account.charges_enabled) connectAccountId = pro.stripe_connect_account_id as string;
-        } catch { /* proceed without Connect */ }
+      let club: { stripe_connect_account_id: string | null } | null = null;
+      if (pro.club_id) {
+        const { data: clubRow } = await admin.from('clubs').select('stripe_connect_account_id').eq('id', pro.club_id).single();
+        club = clubRow;
       }
-
-      const platformFeeCents = Math.round(service.price_cents * 0.10);
+      const { connectAccountId, feePercent } = await resolveConnectAccount(stripe, pro, club);
+      const platformFeeCents = Math.round(service.price_cents * feePercent);
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
         mode: 'payment',
         customer_email: recurring.client_email,

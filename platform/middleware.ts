@@ -29,6 +29,7 @@ export async function middleware(request: NextRequest) {
   const isProtected = path.startsWith('/dashboard') || path.startsWith('/onboarding');
   const isAuthRoute = path.startsWith('/auth');
   const isAdmin = path.startsWith('/admin');
+  const isClubDashboard = path.startsWith('/club-dashboard');
 
   const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean);
   const isAdminUser = adminEmails.includes(user?.email ?? '');
@@ -50,9 +51,15 @@ export async function middleware(request: NextRequest) {
     if (!isAdminUser) return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
+  if (isClubDashboard) {
+    if (!user) return NextResponse.redirect(new URL('/auth/login', request.url));
+    const { data: club } = await supabase.from('clubs').select('id').eq('user_id', user.id).maybeSingle();
+    if (!club) return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/onboarding/:path*', '/auth/:path*', '/admin/:path*', '/club-dashboard/:path*'],
 };

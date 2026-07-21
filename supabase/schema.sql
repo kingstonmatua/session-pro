@@ -8,6 +8,7 @@ create extension if not exists citext;
 -- ---------- Enums ----------
 
 create type public.pro_status as enum ('draft', 'active', 'paused', 'archived');
+create type public.club_status as enum ('draft', 'active', 'paused');
 create type public.session_mode as enum ('in_person', 'online', 'hybrid');
 create type public.service_kind as enum ('single', 'package');
 create type public.booking_status as enum ('pending_payment', 'confirmed', 'cancelled', 'completed', 'no_show');
@@ -40,11 +41,40 @@ exception
 end;
 $$;
 
+-- ---------- Club-owned data ----------
+
+-- A club is a multi-pro customer: one shared public booking page, one Stripe
+-- Connect account receiving 100% of every booking made with any of its pros
+-- (no platform fee), and its own self-service dashboard for roster/branding.
+-- Subscription billing is manual/off-platform — plan_name/monthly_fee_cents/
+-- subscription_status are bookkeeping only, not wired to real billing.
+create table public.clubs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid unique references auth.users(id) on delete set null,
+  slug text not null unique,
+  name text not null,
+  logo_path text,
+  description text,
+  stripe_connect_account_id text,
+  status public.club_status not null default 'draft',
+  plan_name text,
+  monthly_fee_cents integer,
+  subscription_status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint clubs_slug_format check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
+);
+
+create trigger set_clubs_updated_at
+before update on public.clubs
+for each row execute function public.set_updated_at();
+
 -- ---------- Pro-owned data ----------
 
 create table public.pros (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique references auth.users(id) on delete set null,
+  club_id uuid references public.clubs(id) on delete set null,
   slug text not null unique,
   full_name text not null,
   discipline text not null,
@@ -61,12 +91,15 @@ create table public.pros (
   rating_average numeric(2,1),
   rating_count integer not null default 0,
   status public.pro_status not null default 'draft',
+  stripe_connect_account_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint pros_slug_format check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   constraint pros_rating_average_range check (rating_average is null or rating_average between 0 and 5),
   constraint pros_rating_count_nonnegative check (rating_count >= 0)
 );
+
+create index pros_club_id_idx on public.pros (club_id);
 
 create trigger set_pros_updated_at
 before update on public.pros
@@ -331,6 +364,7 @@ for each row execute function public.set_updated_at();
 
 -- ---------- RLS ----------
 
+alter table public.clubs enable row level security;
 alter table public.pros enable row level security;
 alter table public.services enable row level security;
 alter table public.availability_rules enable row level security;
@@ -343,6 +377,23 @@ alter table public.package_enrollments enable row level security;
 alter table public.reschedule_requests enable row level security;
 alter table public.reviews enable row level security;
 alter table public.pro_links enable row level security;
+
+-- Public club profile data needed for sessionpro.io/clubs/[slug].
+create policy "Public can read active clubs"
+on public.clubs for select
+to anon, authenticated
+using (status = 'active');
+
+create policy "Club admins can read their own club"
+on public.clubs for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Club admins can update their own club"
+on public.clubs for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
 
 -- Public profile data needed for sessionpro.io/[slug].
 create policy "Public can read active pros"
@@ -360,6 +411,18 @@ on public.pros for update
 to authenticated
 using ((select auth.uid()) = user_id)
 with check ((select auth.uid()) = user_id);
+
+-- Club admins need to see their roster's names/status for the roster page,
+-- but club_id itself is only ever written via the service-role client.
+create policy "Club admins can read their roster"
+on public.pros for select
+to authenticated
+using (
+  club_id in (
+    select id from public.clubs
+    where clubs.user_id = (select auth.uid())
+  )
+);
 
 create policy "Pros can read active services"
 on public.services for select
@@ -488,6 +551,20 @@ using (
     select 1 from public.pros
     where pros.id = bookings.pro_id
       and pros.user_id = (select auth.uid())
+  )
+);
+
+create policy "Club admins can read their roster's bookings"
+on public.bookings for select
+to authenticated
+using (
+  exists (
+    select 1 from public.pros
+    where pros.id = bookings.pro_id
+      and pros.club_id in (
+        select id from public.clubs
+        where clubs.user_id = (select auth.uid())
+      )
   )
 );
 
@@ -638,5 +715,41 @@ using (
     select 1 from public.pros
     where pros.id = public.safe_uuid((storage.foldername(name))[2])
       and pros.user_id = (select auth.uid())
+  )
+);
+
+-- Club logos share the same bucket under a clubs/{clubId}/... prefix.
+create policy "Authenticated users can upload club media"
+on storage.objects for insert
+to authenticated
+with check (
+  bucket_id = 'pro-media'
+  and (storage.foldername(name))[1] = 'clubs'
+  and exists (
+    select 1 from public.clubs
+    where clubs.id = public.safe_uuid((storage.foldername(name))[2])
+      and clubs.user_id = (select auth.uid())
+  )
+);
+
+create policy "Authenticated users can update club media"
+on storage.objects for update
+to authenticated
+using (
+  bucket_id = 'pro-media'
+  and (storage.foldername(name))[1] = 'clubs'
+  and exists (
+    select 1 from public.clubs
+    where clubs.id = public.safe_uuid((storage.foldername(name))[2])
+      and clubs.user_id = (select auth.uid())
+  )
+)
+with check (
+  bucket_id = 'pro-media'
+  and (storage.foldername(name))[1] = 'clubs'
+  and exists (
+    select 1 from public.clubs
+    where clubs.id = public.safe_uuid((storage.foldername(name))[2])
+      and clubs.user_id = (select auth.uid())
   )
 );

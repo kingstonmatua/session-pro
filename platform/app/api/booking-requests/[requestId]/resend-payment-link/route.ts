@@ -15,7 +15,7 @@ export async function POST(_req: Request, { params }: Params) {
 
   const { data: pro } = await supabase
     .from('pros')
-    .select('id, full_name, timezone, slug, stripe_connect_account_id')
+    .select('id, full_name, timezone, slug, stripe_connect_account_id, club_id')
     .eq('user_id', user.id)
     .single();
   if (!pro) return NextResponse.json({ error: 'Pro not found' }, { status: 404 });

@@ -1,11 +1,12 @@
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveConnectAccount } from '@/lib/clubBilling';
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 type Params = {
   admin: AdminClient;
-  pro: { id: string; full_name: string; slug: string; stripe_connect_account_id: string | null };
+  pro: { id: string; full_name: string; slug: string; stripe_connect_account_id: string | null; club_id: string | null };
   service: { id: string; name: string; price_cents: number; currency: string };
   requestId: string;
   startsAt: string;
@@ -59,15 +60,13 @@ export async function createBookingRequestCheckout(params: Params): Promise<Resu
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sessionpro.io';
 
-  let connectAccountId: string | null = null;
-  if (pro.stripe_connect_account_id) {
-    try {
-      const account = await stripe.accounts.retrieve(pro.stripe_connect_account_id);
-      if (account.charges_enabled) connectAccountId = pro.stripe_connect_account_id;
-    } catch { /* proceed without Connect */ }
+  let club: { stripe_connect_account_id: string | null } | null = null;
+  if (pro.club_id) {
+    const { data: clubRow } = await admin.from('clubs').select('stripe_connect_account_id').eq('id', pro.club_id).single();
+    club = clubRow;
   }
-
-  const platformFeeCents = Math.round(service.price_cents * 0.10);
+  const { connectAccountId, feePercent } = await resolveConnectAccount(stripe, pro, club);
+  const platformFeeCents = Math.round(service.price_cents * feePercent);
 
   let session: Stripe.Checkout.Session;
   try {
