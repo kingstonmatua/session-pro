@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CalendarCheck, CreditCard, Bell, Star, Package, Link as LinkIcon } from 'lucide-react';
 import type { Metadata } from 'next';
+import { PricingSection } from '@/app/components/PricingSection';
 
 export const metadata: Metadata = {
   title: 'For Pros — SessionPro',
@@ -560,33 +561,7 @@ export default function LandingPage() {
       {/* ============================
            PRICING
            ============================ */}
-      <section className="pricing" id="pricing" aria-labelledby="pricing-heading">
-        <div className="container">
-          <div className="section-header">
-            <div className="pill">Pricing</div>
-            <h2 id="pricing-heading">Simple, honest pricing.</h2>
-            <p>Free to get started. We only make money when you do.</p>
-          </div>
-
-          <div className="pricing__card">
-            <div className="pricing__left">
-              <div className="pricing__tagline">Free to sign up.<br />We get paid when you do.</div>
-              <p className="pricing__desc">No subscription. No setup fee. We take 10% when a session is booked &mdash; that&rsquo;s it. Create your page and start earning today.</p>
-              <Link href="/auth/signup" className="btn-primary">Claim your free page &rarr;</Link>
-            </div>
-            <div className="pricing__divider" aria-hidden="true"></div>
-            <ul className="pricing__features">
-              <li><CheckIcon /> Public booking page at sessionpro.io/yourname</li>
-              <li><CheckIcon /> Single sessions and multi-session packages</li>
-              <li><CheckIcon /> Online payments &mdash; Stripe-powered, secure</li>
-              <li><CheckIcon /> Availability and scheduling controls</li>
-              <li><CheckIcon /> 10% booking fee &mdash; only when a session is booked</li>
-            </ul>
-          </div>
-
-          <p className="pricing__note">The 10% fee is deducted automatically at checkout. You receive the rest directly to your bank account via Stripe.</p>
-        </div>
-      </section>
+      <PricingSection />
 
       {/* ============================
            CTA SECTION
