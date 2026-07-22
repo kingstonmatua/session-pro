@@ -1775,6 +1775,16 @@ h1 {
     width: 100%;
     flex-shrink: unset;
   }
+
+  .bookings-header-row { display: none; }
+
+  .booking-row {
+    grid-template-columns: 1fr !important;
+    gap: 6px;
+    padding: 14px 0;
+  }
+
+  .booking-cell-actions { width: 100%; }
 }
 
 /* ---- Existing ---- */
