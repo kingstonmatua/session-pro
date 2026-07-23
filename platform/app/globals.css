@@ -1809,6 +1809,14 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .club-hero-inner {
+    grid-template-columns: 96px 1fr;
+  }
+
+  .club-logo {
+    width: 96px;
+  }
+
   .topbar-inner,
   .container {
     width: min(100% - 28px, 1120px);
