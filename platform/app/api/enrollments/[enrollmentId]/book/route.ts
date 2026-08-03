@@ -119,7 +119,7 @@ export async function POST(
       starts_at: startsAt,
       ends_at: endsAt,
       status: 'confirmed',
-      payment_status: 'included_in_package',
+      payment_status: 'not_required',
       price_cents: 0,
       platform_fee_cents: 0,
       pro_payout_cents: 0,

@@ -376,7 +376,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
               <strong>{centsToDollars(selectedService.price_cents)}</strong>
               <div className="summary-total-note">if accepted</div>
             </div>
-          ) : isPackage && selectedService ? (
+          ) : isPackage && !enrollmentMode && selectedService ? (
             <div style={{ textAlign: 'right' }}>
               <strong>{centsToDollars(selectedService.price_cents)}</strong>
               <div className="summary-total-note">{selectedService.session_count} sessions included</div>
@@ -385,7 +385,7 @@ export function BookingFlow({ pro, services, availability, demoPaymentLink, enro
             <strong>{enrollmentMode ? 'Included in package' : selectedService ? centsToDollars(selectedService.price_cents) : '—'}</strong>
           )}
         </div>
-        {isPackage && selectedService && (
+        {isPackage && !enrollmentMode && selectedService && (
           <p className="fine-print" style={{ marginTop: 8 }}>
             Sessions 2–{selectedService.session_count} are scheduled separately — {pro.full_name} sends you a booking link after each session.
           </p>
